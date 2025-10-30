@@ -16,6 +16,14 @@
 (global-set-key (kbd "TAB") 'self-insert-command)	;; Enable insert indent with TAB-key
 (setq-default tab-width 4)							;; Set TAB indent in 4 symbols
 
+;; Define function for align all comments
+(defun align-comments ()
+  "Align all comments in region by comment char."
+  (interactive)															
+  (align-regexp (region-beginning) (region-end)							
+                (concat "\\(\\s-*\\)" (regexp-quote comment-start))))	
+(global-set-key (kbd "C-c a c") 'align-comments)	;; Set keybindings for align-comments
+
 (global-set-key "\C-x\ \C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
 
 ;; MELPA initialization
