@@ -1,56 +1,59 @@
-(menu-bar-mode -1)
-(tool-bar-mode -1)
-(tab-bar-mode t)
-(setq inhibit-splash-screen t)
+(menu-bar-mode -1)									;; Hide menu on top
+(tool-bar-mode -1)									;; Hide bar icon on top
+(tab-bar-mode t)									;; Enable tab's on top
+(setq inhibit-splash-screen t)						;; Disable start screen EMACS
 (if (display-graphic-p)
-    (scroll-bar-mode -1))
-(setq-default initial-scratch-message nil)
-(setq use-file-dialog nil)
-(setq make-backup-files nil)
-(setq auto-save-list-file-name nil)
-(setq auto-save-default nil)
+    (scroll-bar-mode -1))							;; Hide scrollbar in GUI mode
+(setq-default initial-scratch-message nil)			;; Disable message on top SCRATCH buffer
+(setq use-file-dialog nil)							;; Ask for textual confirmation instead of GUI
+(setq make-backup-files nil)						;; Don't make backup file
+(setq auto-save-list-file-name nil)					;; Don't make autosave list
+(setq auto-save-default nil)						;; Diasable default autosave files buffer
 
-(recentf-mode t)
-(ido-mode 1)
+(recentf-mode t)									;; Enable menu of recent files
+(ido-mode 1)										;; Enable extra open file mode
 
-(global-set-key (kbd "TAB") 'self-insert-command)
-(setq-default tab-width 4)
+(global-set-key (kbd "TAB") 'self-insert-command)	;; Enable insert indent with TAB-key
+(setq-default tab-width 4)							;; Set TAB indent in 4 symbols
 
-(global-set-key "\C-x\ \C-g" 'recentf-open-files)
+(global-set-key "\C-x\ \C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
 
+;; MELPA initialization
 (require 'package)
 (add-to-list 'package-archives
 	     '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
 
 (unless package-archive-contents
-  (package-refresh-contents))
+  (package-refresh-contents))						;; Refresh packages list if it not present
 
 ;;(unless (package-installed-p 'use-package)			;; Uncomment this if needed oldest version EMACS <30
 ;;	(package-install 'use-package))
 
-(require 'use-package)
-(setq use-package-always-ensure t)
+(require 'use-package)								;; Enable to use 'use-package package
+(setq use-package-always-ensure t)					;; Always check present package befor install
 
+;; Install needed packages
 (dolist (package-need-install '(atom-one-dark-theme company magit racket-mode slime tramp windsize xterm-color))
   (eval `(use-package ,package-need-install)))
 
-(global-company-mode)
+(global-company-mode)								;; Enable global mode autocomplete
 
+;; Enable smooth scroll buffer
 (setq redisplay-dont-pause t
       scroll-margin 5
       scroll-step 1
       scroll-conservatively 10000
       scroll-preserve-screen-position 1)
 
-(windmove-default-keybindings)
+(windmove-default-keybindings)						;; Turn keybindings for move to other window with S-<cursur> keys
 
 ;;(require 'windsize)
-(windsize-default-keybindings)
-(setq windsize-cols 1)
-(setq windsize-rows 1)
+(windsize-default-keybindings)						;; Turn keybindings for change window size with C-S-<cursor> keys
+(setq windsize-cols 1)								;; Set change step to 1 column
+(setq windsize-rows 1)								;; Set change step to 1 row
 
-(setq inferior-lisp-program "sbcl")
+(setq inferior-lisp-program "sbcl")					;; Set path to SBCL
 
 
 (custom-set-variables
