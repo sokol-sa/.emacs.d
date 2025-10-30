@@ -1,0 +1,3655 @@
+#+AUTHOR: Sergei Nosov
+#+EMAIL: sergei.nosov@gmail.com
+
+* Foreword
+
+This is a little novel for casual reading about a text editor. Incidentally, it
+also works as an Emacs 24.4 configuration file.
+
+Every section talks about some aspect of my day-to-day Emacs usage. The sections
+are more or less independent from each other, so you can read them selectively.
+
+Hopefully, you will find something useful here and, maybe, you will share your
+insights into better ways to use Emacs with me.
+
+* Contents                                                   :noexport:TOC_1:quote:
+#+BEGIN_QUOTE
+- [[#foreword][Foreword]]
+- [[#ui-customization][UI customization]]
+- [[#text-manipulation][Text manipulation]]
+- [[#smarter-alternatives-to-built-in-functionality]["Smarter" alternatives to built-in functionality]]
+- [[#shortcuts-longcuts-and-backups][Shortcuts, "Longcuts" and Backups]]
+- [[#dired][Dired]]
+- [[#better-buffer-names][Better buffer names]]
+- [[#spell-checking][Spell-checking]]
+- [[#fighting-escape-sequences-in-strings][Fighting escape sequences in strings]]
+- [[#parenthesis-for-dummies][Parenthesis for Dummies]]
+- [[#programming-languages][Programming languages]]
+- [[#shell-commands][Shell commands]]
+- [[#get-full-path][Get full path]]
+- [[#magit][Magit]]
+- [[#ediff][Ediff]]
+- [[#diff][Diff]]
+- [[#ido-selection][Ido selection]]
+- [[#buffer-list][Buffer list]]
+- [[#using-external-websites][Using external websites]]
+- [[#window-management][Window management]]
+- [[#embedded-lisp-evaluation][Embedded lisp evaluation]]
+- [[#field-applications][Field applications]]
+- [[#browse-kill-ring][Browse kill ring]]
+- [[#navigate-to-previous-position][Navigate to previous position]]
+- [[#multiple-cursors][Multiple cursors]]
+- [[#sudo-edit][Sudo edit]]
+- [[#terminal-emulator-and-ssh][Terminal emulator and SSH]]
+- [[#grepping][Grepping]]
+- [[#hideshow-blocks][Hide/show blocks]]
+- [[#auto-completion][Auto-completion]]
+- [[#org][Org]]
+- [[#expand-region][Expand region]]
+- [[#jump-to-definition][Jump to definition]]
+- [[#whitespaces][Whitespaces]]
+- [[#user-friendliness][User-friendliness]]
+- [[#regional-settings][Regional settings]]
+- [[#scrolling][Scrolling]]
+- [[#line-wrap][Line wrap]]
+- [[#do-thing-at-point][Do thing at point]]
+- [[#auxiliary-files][Auxiliary files]]
+- [[#recursive-minibuffers][Recursive minibuffers]]
+#+END_QUOTE
+
+* UI customization
+** Lean and mean
+
+Emacs doesn't need a lot of UI elements - it should be lean and mean. Well, and
+clean. And it should look good on the screen. So, let's get rid of unnecessary
+UI elements, like scroll-bar, tool-bar and the ring-bell.
+
+#+BEGIN_SRC emacs-lisp
+  (if (fboundp 'menu-bar-mode) (menu-bar-mode -1))
+  (if (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+  (if (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+  (setq inhibit-startup-message t)
+
+  (setq-default initial-major-mode (quote emacs-lisp-mode))
+  (setq-default initial-scratch-message nil)
+
+  (setq ring-bell-function 'ignore) ;; shut up the bell
+#+END_SRC
+
+** Dark tango
+
+For some reason, my eyes like dark background. Not pitch black, but pretty
+black.
+
+#+BEGIN_SRC emacs-lisp
+  (funcall
+   (defun configure-theme ()
+     "Make Emacs pretty"
+     (load-theme 'tango-dark t)
+     ;; make background a little bit darker
+     (set-background-color "#1d1f21")
+     (setq-default frame-background-mode (quote dark))))
+#+END_SRC
+
+** Deja Vu
+
+DejaVu fonts family is the best one out there. And DejaVu Sans Mono is its
+brightest child:
+
+- it's sans-serif
+- it's mono-space
+- it covers a great amount of Unicode symbols
+- it's community-driven and MIT/public domain licensed
+- it makes l, 1 and I clearly distinguishable, as well as 0 and O
+- it's beautiful
+
+Basically, DejaVu Sans Mono is a "font done right" for technical work.
+
+#+BEGIN_SRC emacs-lisp
+  (set-face-attribute 'default nil :family "DejaVu Sans Mono")
+#+END_SRC
+
+** Forbidden fruit
+
+This section is supposed to make Emacs more usable on Mac's, but since I've
+never owned a Mac, I can't really tell whether it works at all. If you own a
+Mac, please, enlighten me!
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default mac-command-modifier 'meta)
+#+END_SRC
+
+* Text manipulation
+
+Some people mistakenly call Emacs a text editor. And, admittedly, these people
+have a point. Let's see how we can make Emacs better in text manipulation.
+
+** Delete selection
+
+If you perform a delete, yank or insert operation after selecting a region, it
+should be deleted. It's not a default Emacs behavior, but, practically,
+everybody else does it by default. I don't have a strong opinion on whether it's
+a good thing or not, so I follow the fashion.
+
+#+BEGIN_SRC emacs-lisp
+  (delete-selection-mode 1)
+#+END_SRC
+
+** Join following line
+
+There's a default binding =M-^= which takes the current line and puts it in the
+end of the previous one. I fell in love with it from the first day I came
+across. However, putting the next line in the end of the current one is a much
+better design for the same functionality. So, let's have it as well, and make it
+join the region while we're at it.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map (kbd "M-j")
+    (defun join-following-line (arg)
+      "Joins the following line or the whole selected region"
+      (interactive "P")
+      (if (use-region-p)
+          (let ((fill-column (point-max)))
+            (fill-region (region-beginning) (region-end)))
+        (join-line -1))))
+#+END_SRC
+
+** SubWords
+
+CamelCaseIdentifiers are quite popular nowadays, so it's good to have an editor
+which understands them. Emacs has a built-in support for that. If =subword-mode=
+is on, bindings, like, =M-f=, =M-d=, etc., will operate on "subwords" instead of
+whole words.
+
+It's quite handy and all, but, probably, half of the time you want to operate on
+the whole identifier. I found that =expand-region= nicely complements subword
+functionality in that regard:
+
+- If you want to work with subwords, then use =M-f=, =M-b=, =M-d=, =M-h=, etc.
+- Otherwise, use =C-== to select the whole word and do whatever you need.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'subword)
+  ;; RecognizeCamelCaseSubwording
+  (global-subword-mode)
+  ;; don't remap some commands
+  (define-key subword-mode-map (vector 'remap 'transpose-words) nil)
+  (define-key subword-mode-map (vector 'remap 'upcase-word) nil)
+  (define-key subword-mode-map (vector 'remap 'downcase-word) nil)
+#+END_SRC
+
+** Backspace
+
+Emacs has 2 bindings with slightly different meaning that work pretty much like
+=Enter= - =C-j= and =C-m=. That's a good thing, because =Enter= is a frequently
+used, but pretty distant key.
+
+And you may wonder - what about =Backspace=? Why doesn't it have a better
+binding as well?
+
+I will tell you why. Because somebody stole it from us.
+
+If you open a terminal emulator right now - most likely, you will find that
+=C-h= acts as =Backspace=. It's a beautiful ancient tradition Emacs doesn't
+follow. Personally, I'm sure that it's a result of some kind of sabotage in the
+very beginning of Emacs history. Don't believe me? Want evidence? You can check
+everything yourself!
+
+Clone Emacs git repository and checkout the revision number
+=d7cc518448c8af66db86a842bbd0372e7e13a95a=.
+
+You'll find yourself in a distant 1988. That's a first time known by Emacs
+revision history, when =C-h= binding was mentioned.
+
+Open the file =lisp/emulation/vip.el= and go to line 217. You will find the
+following, very suspicious code there:
+
+#+BEGIN_EXAMPLE
+  (defun vip-mode ()
+    "Turn on VIP emulation of VI."
+    (interactive)
+    (if (not vip-inhibit-startup-message)
+        (progn
+      (switch-to-buffer "VIP Startup Message")
+      (erase-buffer)
+      (insert
+       "VIP is a Vi emulation package for GNU Emacs.  VIP provides most Vi commands
+  including Ex commands.  VIP is however different from Vi in several points.
+  You can get more information on VIP by:
+      1.  Typing `M-x info' and selecting menu item \"vip\".
+      2.  Typing `C-h k' followed by a key whose description you want.
+#+END_EXAMPLE
+
+Pay attention to the first 2 lines of the code and to the very last one.
+
+Don't know about you, but it's enough evidence for me to be totally confident,
+that it was a planned Vi fans demarche against Emacs. Those darn villains
+sabotaged Emacs, when they understood that everything was finished for
+them. They came up with and executed their evil plan.
+
+I can even assume, that FBI and CIA were also involved in this. Which is the
+most likely reason, why Mr. Stallman is so opposed to them.
+
+And what a disgusting, smug name for a mode - VIP.
+
+So I urge you! It's the time to fight and restore justice! Time to take back
+what rightly belongs to us!
+
+#+BEGIN_SRC emacs-lisp
+  (define-key key-translation-map [?\C-h] [?\C-?]) ;; translate C-h to DEL
+  (global-set-key (kbd "M-h")   'backward-kill-word)
+  (global-set-key (kbd "C-M-h") 'backward-kill-word)
+#+END_SRC
+
+** Zap up to char
+
+There's a nice binding =M-z=, which kills up to and including next occurrence of
+the provided character.
+
+But there's also an alternative function in the =misc= module, which kills up to
+the provided character, /excluding/ it.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'misc)
+  (global-set-key (kbd "M-Z") 'zap-up-to-char)
+#+END_SRC
+
+** Upcase, lowercase and capitalize
+
+Since 99.999% of people using Emacs rebind Caps Lock to Ctrl, you need a decent
+replacement for its use cases. Emacs has all the corresponding functionality,
+but the bindings are pretty awkward. So I make it much easier to access:
+
+- =M-u= - upcase word or region
+- =M-l= - lowercase word or region
+- =M-c= - capitalize word or region
+
+#+BEGIN_SRC emacs-lisp
+  (defmacro action-dispatch (action)
+    `(defun ,(intern (format "%s-dispatch" action)) (arg)
+       "Perform action on word or region."
+       (interactive "P")
+       (if (region-active-p)
+           (,(intern (format "%s-region" action)) (region-beginning) (region-end))
+         (,(intern (format "%s-word" action)) (if arg arg 1)))))
+
+  (define-key global-map [remap upcase-word]     (action-dispatch upcase))
+  (define-key global-map [remap downcase-word]   (action-dispatch downcase))
+  (define-key global-map [remap capitalize-word] (action-dispatch capitalize))
+#+END_SRC
+** Move text
+
+If you need to move the text to some pretty distant place, then, of course, it's
+easier to kill and yank it. But if you simply need to shuffle lines around a
+bit, then =M-n= and =M-p= bindings are a natural way to do this.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "move-text-autoloads"
+    '(progn
+       (if (require 'move-text nil t)
+           (progn
+             (define-key global-map (kbd "M-n") 'move-text-down)
+             (define-key global-map (kbd "M-p") 'move-text-up))
+         (message "WARNING: move-text not found"))))
+#+END_SRC
+** (Non-) electric indentation
+
+I got used to the fact, that =C-j= inserts a newline and indents, and that =C-m=
+inserts a newline without indenting. Emacs 24.4 swapped them, switching
+=electric-indent-mode= on by default. Probably, they had their reasons for that,
+but I prefer the "old" behavior.
+
+#+BEGIN_SRC emacs-lisp
+  (electric-indent-mode -1)
+#+END_SRC
+** String manipulations
+
+Emacs 24.4 came with a =subr-x= library with routines for string manipulations,
+like =string-trim=, =string-join= and etc. It's better to always have these at
+hand.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'subr-x nil t)
+#+END_SRC
+
+** Comment and copy
+
+Oftentimes, I want to change something in a code block, but still have the
+original version around. So, before performing the modifications, I copy the
+block, comment it out and yank.
+
+The best key phrase I came up with for this was:
+
+1. =M-w= to copy the selected region
+2. =C-x C-x= to select the same region again
+3. =M-;= to comment it
+4. =C-y= to yank
+
+Quite a bit of work, I must say. So, now I use =C-u M-;= to call
+=comment-region-as-kill= (akin to =copy-region-as-kill=), which does all 1, 2
+and 3 at once.
+
+#+BEGIN_SRC emacs-lisp
+  (defun comment-region-as-kill (beg end)
+    (copy-region-as-kill beg end)
+    (comment-region beg end))
+
+  (define-key global-map (kbd "M-;")
+    (defun comment-dwim-or-comment-region-as-kill (arg)
+      (interactive "*P")
+      (if (equal current-prefix-arg '(4))
+          (comment-region-as-kill (region-beginning) (region-end))
+        (comment-dwim arg))))
+#+END_SRC
+
+* "Smarter" alternatives to built-in functionality
+
+The following functions try to be smarter about what they do, while closely
+maintaining the original intent and implementation.
+
+** Searching
+
+First of all, let's make =isearch= "more stateless". By default, after you make
+a first jump to the next occurrence, =backspace= will stop deleting characters
+and start moving to previous occurrences. I find it rather confusing.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key isearch-mode-map [remap isearch-delete-char] 'isearch-del-char)
+#+END_SRC
+
+If you select a region that lies on a single line entirely, then incremental
+searching (=C-s= and =C-r=) should use it as an initial value and make a first
+jump. The common way I use it is:
+
+- mark a word or a longer unit with =er/expand-region= (=C-==)
+- press =C-s= or =C-r= to jump to the next or previous occurrence
+
+#+BEGIN_SRC emacs-lisp
+  (defmacro smart-isearch (direction)
+    `(defun ,(intern (format "smart-isearch-%s" direction)) (&optional regexp-p no-recursive-edit)
+       "If region is active and non empty, use it for searching and
+    make first jump. Otherwise, behave like original function."
+       (interactive "P\np")
+       (let ((smart-p (and
+                       (region-active-p)
+                       (< (region-beginning) (region-end))
+                       (= (- (line-number-at-pos (region-end))
+                             (line-number-at-pos (region-beginning))) 0)
+                       )))
+         (when smart-p
+           (kill-ring-save (region-beginning) (region-end)))
+
+         (,(intern (format "isearch-%s" direction)) regexp-p no-recursive-edit)
+
+         (when smart-p
+           (isearch-yank-kill)
+           (,(intern (format "isearch-repeat-%s" direction)))))))
+  (define-key global-map [remap isearch-forward]  (smart-isearch forward))
+  (define-key global-map [remap isearch-backward] (smart-isearch backward))
+#+END_SRC
+
+Similarly, =occur= (=M-s o=) should use the selected region, if any, without
+prompting. By the way (in case you didn't know already), you can press =M-s o=
+during incremental search to call =occur= for the current search string.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map [remap occur]
+    (defun smart-occur (arg)
+      (interactive "P")
+      (if (region-active-p)
+          (occur (buffer-substring-no-properties (region-beginning) (region-end)) arg)
+        (call-interactively 'occur))))
+#+END_SRC
+
+I got used to the convention of =C-x C-q= being a toggle between writable and
+read-only buffer states. It's better for occur mode to follow this convention.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key occur-mode-map "\C-x\C-q" 'occur-edit-mode)
+  (define-key occur-edit-mode-map "\C-x\C-q" 'occur-cease-edit)
+#+END_SRC
+
+** Beginning of line
+
+More often than not, you want to jump to the first non-whitespace character,
+when you jump to the beginning of the line. So, it makes sense to rebind the
+default behavior of =beginning-of-line= (=C-a=). In cases, when you actually
+want to go to the very beginning of the line, you should hit =C-a= one more
+time.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map [remap move-beginning-of-line]
+    (defun smart-beginning-of-line ()
+      "Move point to first non-whitespace character or beginning-of-line.
+
+    Move point to the first non-whitespace character on this line.
+    If point was already at that position, move point to beginning of line."
+      (interactive)
+      (let ((oldpos (point)))
+        (back-to-indentation)
+        (and (= oldpos (point))
+             (beginning-of-line)))))
+#+END_SRC
+
+** Auto-indent after yank
+
+It is so natural and convenient for the just yanked region to be properly
+indented, that I got used to this functionality even before I turned it on. On
+the rare occasions, when you don't want this behavior, you can use the universal
+argument to suppress auto indentation.
+
+#+BEGIN_SRC emacs-lisp
+  (defadvice insert-for-yank-1 (after indent-region activate)
+    "Indent yanked region in certain modes, C-u prefix to disable"
+    (if (and (not current-prefix-arg)
+             (member major-mode '(sh-mode
+                                  emacs-lisp-mode lisp-mode
+                                  c-mode c++-mode objc-mode d-mode java-mode cuda-mode js-mode
+                                  LaTeX-mode TeX-mode
+                                  xml-mode html-mode css-mode)))
+        (indent-region (region-beginning) (region-end) nil)))
+#+END_SRC
+
+** Fill/unfill paragraph
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default fill-column 80)
+#+END_SRC
+
+=fill-paragraph= command (=M-q=) is so handy, that I find myself using it more
+often, than =newline-and-indent= when writing text.
+
+I tweaked it a bit, so that when you provide a universal argument, then the
+paragraph (or region) is "unfilled", i.e. it's placed on a single line. It may
+seem like a useless function, but it turns out to be pretty handy as well.
+
+Consider a case, when you're writing an e-mail which is going to be posted to
+some news group and displayed via web interface. If the width of the field for
+your e-mail is lesser that your =fill-column= value, it will look ugly. E.g. you
+send the following text:
+
+#+BEGIN_EXAMPLE
+  This is not a very long sentence, but it's long enough to occupy 2 lines for your
+  fill-column value.
+
+  This is the next sentence, after the "not-so-long" one.
+#+END_EXAMPLE
+
+If the width of the displaying field is less than 80 (in my case), then it will
+look something like this:
+
+#+BEGIN_EXAMPLE
+  This is not a very long sentence, but it's long enough to occupy
+  2 lines for your
+  fill-column value.
+
+  This is the next sentence, after the "not-so-long" one.
+#+END_EXAMPLE
+
+You get those 2 short, ugly lines.
+
+In order to workaround this, you can rely on the web interface (or any other
+client, that will render an e-mail) to perform "filling" and issue an
+=unfill-region= command before sending.
+
+To do this, simply select the text and provide a universal argument: =C-u M-q=.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "unfill-autoloads"
+    '(progn
+       (if (require 'unfill nil t)
+           (define-key global-map [remap fill-paragraph]
+             (defun fill-paragraph-dispatch (arg)
+               "Fill or unfill paragraph"
+               (interactive "P")
+               (if arg
+                   (if (region-active-p)
+                       (unfill-region (region-beginning) (region-end))
+                     (unfill-paragraph))
+                 (fill-paragraph 'nil 't))))
+         (message "WARNING: unfill not found"))))
+#+END_SRC
+
+** View mode
+
+Emacs has an odd convention for binding =C-x C-q= to toggle a read-only
+state. It's not ubiquitous, but it's definitely the most common binding. So, I
+try to follow it wherever it makes sense and customize the modes that don't.
+
+However, I find that =view-mode= for most of the buffers provides a better
+alternative to simple read-only toggle. It has some additional navigation
+functions, and also, you can use shorter bindings (omitting the =C-= modifier)
+for common operations.
+
+There's some kind of Vimy flavor to it and, eventually, when I use it, I find
+myself thinking "How can these Vim people live switching between editing and
+viewing modes all the time? The weirdest guys."
+
+#+BEGIN_SRC emacs-lisp
+  (require 'view)
+
+  (global-set-key (kbd "C-x C-q") 'view-mode)
+
+  ;; simpler navigation
+  (define-key view-mode-map "p" 'previous-line)
+  (define-key view-mode-map "n" 'next-line)
+  (define-key view-mode-map "f" 'forward-char)
+  (define-key view-mode-map "b" 'backward-char)
+  (define-key view-mode-map "l" 'recenter-top-bottom)
+  (define-key view-mode-map "e" 'move-end-of-line)
+  (define-key view-mode-map "a" 'smart-beginning-of-line)
+  (define-key view-mode-map "v" 'scroll-up-command)
+
+#+END_SRC
+
+I also use view-mode to read articles or other pieces of texts, and I,
+typically, use some "whitespace-only" commands to make it more readable. Even
+though they only insert or remove whitespaces, they are, technically, "write"
+operations. Here I define a couple of functions that escape read-only nature of
+the view mode.
+
+#+BEGIN_SRC emacs-lisp
+  (defmacro view-escape-read-only (fn)
+    `(defun ,(intern (format "view-%s" fn)) (arg)
+       (interactive "P")
+       (view-mode -1)
+       (,(intern (format "%s" fn)) arg)
+       (view-mode 1)))
+
+  (define-key view-mode-map [remap fill-paragraph] (view-escape-read-only fill-paragraph-dispatch))
+  (define-key view-mode-map [remap undo] (view-escape-read-only undo))
+  (define-key view-mode-map [remap open-line] (view-escape-read-only open-line))
+  (define-key view-mode-map [remap join-following-line] (view-escape-read-only join-following-line))
+#+END_SRC
+
+** Open line
+
+=C-o= "opens" the line, i.e. it inserts a newline, but doesn't move the cursor.
+It's nice, but, by default, it doesn't re-indent the next line, which means that
+most of the time you still have to go there and hit =TAB=. Let's fix that.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map [remap open-line]
+    (defun open-line-indent (arg)
+      "Use newline-and-indent in open-line command if there are
+    non-whitespace characters after the point"
+      (interactive "P")
+      (save-excursion
+        (if (looking-at-p "\\s-*$") ;; how in earth does this work?
+            (newline arg)
+          (newline-and-indent)))))
+#+END_SRC
+
+* Shortcuts, "Longcuts" and Backups
+** Shortcuts
+
+If I want to kill a buffer, it's always the current one. So, there's no need to
+ask for a name.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "\C-x k") 'kill-this-buffer)
+#+END_SRC
+
+When Emacs asks a question, sometimes you have to type "yes" and sometimes it's
+simply "y". I say "y" is sufficient in both cases.
+
+#+BEGIN_SRC emacs-lisp
+  (defalias 'yes-or-no-p 'y-or-n-p)
+#+END_SRC
+
+When you press =C-x=, for example, and hesitate with a next character, =C-x=
+will be displayed in the echo-area after some time. But I don't see any reason
+why you should wait for it.
+
+#+BEGIN_SRC emacs-lisp
+  (setq echo-keystrokes 0.001)
+#+END_SRC
+
+Some functions are "disabled" by default, because "new users often find them
+confusing". Let's enable the ones we fill ourselves comfortable with.
+
+#+BEGIN_SRC emacs-lisp
+  (put 'narrow-to-region 'disabled nil)
+#+END_SRC
+
+** "Longcuts"
+
+It's too easy to accidentally press =C-x C-c= and exit Emacs. Let's make it a
+bit harder.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default confirm-kill-emacs (quote y-or-n-p))
+#+END_SRC
+
+** Backups
+
+It was hard for me to remember, whether you have to press =C-x C-f= to find a
+file or =C-x f=. Also, sometimes I simply was making typos. Assigning both
+bindings to the same function turned out to be a reasonable solution, which I
+applied in other cases as well.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-x f")    'find-file)
+  (global-set-key (kbd "\C-x v a") 'vc-annotate)
+  (global-set-key (kbd "C-x +")    'text-scale-adjust)
+#+END_SRC
+
+* Dired
+
+As you may know, dired stands for DIRectory EDitor and it is, basically, a file
+manager inside Emacs.
+
+I consider dired a truly amazing piece of software. More than anything, it makes
+the job done without overcomplications on implementation or interface side.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'dired-x nil t)
+#+END_SRC
+
+** Dired jump
+To enable a convenient =C-x C-j= binding, we have to require the =dired-x=
+module. When visiting a file, =C-x C-j= opens current directory in dired. When
+already in dired, it jumps to the parent directory. With universal argument -
+=C-u C-x C-j= - it opens dired in other window.
+
+Note, that Dired and View mode allow you to omit the =C-= modifier quite often.
+So, if you want to traverse some tree and have a quick look into some files, you
+can use one-letter commands for navigation. You only need to use =v= to open
+files in =view-mode= and =j= - to jump back to dired.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key dired-mode-map (kbd "j")
+    (define-key global-map (vector 'remap 'dired-jump)
+      (defun dired-jump-universal-other (arg)
+        "Calls dired-jump. With prefix argument uses other window"
+        (interactive "P")
+        (dired-jump arg))))
+
+  (define-key view-mode-map "j" 'dired-jump-universal-other)
+#+END_SRC
+
+** Dired details
+There used to be a =dired-details= module hiding unnecessary information inside
+dired. Now this functionality comes built-in. You can toggle the visibility with
+=(=.
+
+In =dired-details= days, I made it look fancier and used =h= as a shortcut. But,
+I guess, if the default isn't broken, you should stick to it.
+
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'dired-mode-hook 'dired-hide-details-mode)
+#+END_SRC
+
+** Jumping back and forth
+=beginning-of-buffer= and =end-of-buffer= commands should move the point to
+better positions:
+
+#+BEGIN_SRC emacs-lisp
+  (define-key dired-mode-map (vector 'remap 'end-of-buffer)
+    (defun dired-jump-to-bottom ()
+      "Jumps to the last file"
+      (interactive)
+      (goto-char (point-max))
+      (dired-previous-line 1)))
+
+  (define-key dired-mode-map (vector 'remap 'beginning-of-buffer)
+    (defun dired-jump-to-top ()
+      "Jumps to the .. entry"
+      (interactive)
+      (goto-char (point-min))
+      (dired-next-line 1)
+      (if (looking-at "\\.") ;; top-level directories don't have a
+          ;; .. entry
+          (dired-next-line 1))))
+#+END_SRC
+
+** Do what I mean
+
+- If you have 2 dired windows opened, then copying and renaming should use the
+  directory of the other window as a default target:
+
+  #+BEGIN_SRC emacs-lisp
+    (setq dired-dwim-target t)
+  #+END_SRC
+
+- Don't be afraid of recursive operations:
+
+  #+BEGIN_SRC emacs-lisp
+    (setq
+     dired-recursive-copies (quote always)
+     dired-recursive-deletes (quote always))
+  #+END_SRC
+
+- Group directories first:
+
+  #+BEGIN_SRC emacs-lisp
+    (setq dired-listing-switches
+          (concat "-alh"
+                  (when (not (equal window-system 'w32))
+                    " --group-directories-first")))
+  #+END_SRC
+
+** Wdired
+
+When editing dired buffer (=C-x C-q=), allow to change the permissions as well:
+
+#+BEGIN_SRC emacs-lisp
+  (define-key dired-mode-map (kbd "C-x C-q") 'dired-toggle-read-only)
+  (setq-default wdired-allow-to-change-permissions t)
+#+END_SRC
+
+** Native explorer
+
+Use =E= in dired to open a system's native file explorer in the current
+directory:
+
+#+BEGIN_SRC emacs-lisp
+  (define-key dired-mode-map (kbd "E")
+    (defun open-window-manager ()
+      "Open default system windows manager in current directory"
+      (interactive)
+      (save-window-excursion
+        (if (equal window-system 'w32)
+            (async-shell-command "explorer .")
+          (if (equal window-system 'x)
+              (async-shell-command "nautilus ."))))))
+#+END_SRC
+
+** Tar (Tahr? Thar?)
+
+One thing that makes me upset about Dired is its somewhat limited support for
+compression. Yes, there's a =Z= key for this, but
+
+- it doesn't compress directories
+- when multiple files are marked, each file is compressed to a separate archive,
+  which is not what I want in 98.6% of cases
+
+For some reason Dired is not very customizable in that regard. At least, I
+couldn't find a way to alter its behavior without a complete rewrite of related
+functions.
+
+So, I ended up with a small function which does what I want in 98.6% of cases.
+You press =z=, and it asks you for an output archive name. If multiple files are
+marked at the moment, it will compress those into a single archive. And,
+guess what, it works for directories, too!
+
+If I want to untar an archive, I simply use =&= which suggests untaring as a
+first guess.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key dired-mode-map (kbd "z")
+    (defun dired-tar-marked-files ()
+      "Ask a name for a .tar.gz archive and compress the marked
+  files into it. If no files are marked or a numeric prefix arg is
+  given, the next ARG files are used. Just C-u means the current
+  file. The prompt mentions the file(s) or the marker, as
+  appropriate."
+      (interactive)
+      (let* ((files (dired-get-marked-files t current-prefix-arg))
+             (out-name (concat
+                        (if (equal (length files) 1)
+                            (file-name-nondirectory (car files))
+                          (file-name-base (directory-file-name (expand-file-name default-directory))))
+                        ".tar.gz")))
+        (async-shell-command (concat
+                              "tar -czvf "
+                              (dired-mark-pop-up
+                               nil 'shell files
+                               'read-shell-command
+                               (format "Output file name for 'tar -czvf' on %s: "
+                                       (dired-mark-prompt current-prefix-arg files))
+                               out-name nil)
+                              " "
+                              (mapconcat 'identity files " "))))))
+#+END_SRC
+
+While we're at it, let's make =tar-mode= more self-confident in reverting
+buffers.
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'tar-mode nil t)
+    (define-key tar-mode-map (kbd "g")
+      (defun revert-buffer-without-query ()
+        (interactive)
+        (revert-buffer nil t))))
+#+END_SRC
+
+* Better buffer names
+** Default uniquification
+
+If you open several files with the same name, then a good way to distinguish
+between those is to prepend parent directory names to file names. If the names
+still conflict, you can add other parent directory levels, until the clash is
+resolved
+
+#+BEGIN_SRC emacs-lisp
+  (require 'uniquify)
+  (setq-default uniquify-buffer-name-style 'forward)
+#+END_SRC
+
+** Append tramp host
+
+For remote files, opened with TRAMP, it makes sense to append the hostname to
+the buffer name.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'tramp)
+  (defun append-tramp-host ()
+    "Appends host name to the current buffer name for remote
+  files"
+    (interactive)
+    (when (tramp-tramp-file-p default-directory)
+      (rename-buffer
+       (concat
+        (replace-regexp-in-string " <.*>$" "" (or (uniquify-buffer-base-name) (buffer-name)))
+        " <"
+        (tramp-file-name-host
+         (tramp-dissect-file-name default-directory)) ">")
+       t)))
+
+  (add-hook 'find-file-hook 'append-tramp-host)
+  (add-hook 'dired-mode-hook 'append-tramp-host)
+#+END_SRC
+
+** Rename buffer
+
+In case you have a better name for a buffer in your head, you can always rename
+it by pressing =C-x C-r=.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "\C-x\C-r") 'rename-buffer)
+#+END_SRC
+* Spell-checking
+
+Can't tell it for sure, but I suspect that even the brightest spelling bee
+champions hit the wrong button once in a while. So, it's good to have an
+automated spell-checking in every text buffer you edit.
+
+It would be an overkill for editing source code, since everybody loves
+identifiers like "src", "lhs", "rhs", "ptr", "uniq", "img", "gl", "qq" and a
+gazillion of other pretty names. But, for that, we have a =flyspell-prog-mode=
+which checks spelling only in strings and comments.
+
+By default, only the words under the cursor are checked for correctness. So, if
+you want to spell check the whole buffer (or region), hit =C-x M-$=. When the
+cursor is under the red-highlighted word, you can press =M-$= to look for
+alternative spellings. To go to the next error, hit "C-,". To auto-correct the
+next word, hit =C-.=.
+
+I edit texts in both Russian and English and I have to spell-check both of the
+languages. To toggle between the dictionaries I use =C-c M-$=. If you want to
+toggle (cycle, actually) between (through) other languages, you can customize
+the =ispell-common-dictionaries= variable.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'flyspell)
+  (add-hook 'text-mode-hook 'flyspell-mode)
+  (add-hook 'prog-mode-hook 'flyspell-prog-mode)
+
+  (defcustom ispell-common-dictionaries
+    '("en_US")
+    "List of dictionaries for common use"
+    :group 'ispell)
+
+  (setq-default ispell-dictionary (car ispell-common-dictionaries))
+
+  (define-key flyspell-mode-map (kbd "C-c M-$")
+    (defun ispell-next-dictionary()
+      "Cycle through dictionaries in `ispell-common-dictionaries'"
+      (interactive)
+      (let* ((dic ispell-current-dictionary)
+             (next (cadr (member dic ispell-common-dictionaries)))
+             (change (if next next (car ispell-common-dictionaries))))
+        (ispell-change-dictionary change))))
+
+  (define-key flyspell-mode-map (kbd "C-x M-$")
+    (defun flyspell-buffer-or-region ()
+      (interactive)
+      (if (region-active-p)
+          (flyspell-region (region-beginning) (region-end))
+        (flyspell-buffer))))
+#+END_SRC
+* Fighting escape sequences in strings
+
+It is frustratingly difficult to follow special characters and sequences in
+strings. Especially, in regular expressions, where you have languages hierarchy
+2 levels deep. This leads to strings, like, =\\\\= (4 backslashes) for matching
+a =\= (single backslash).
+
+With string-edit mode you can press =C-c e= to edit a string at point without
+escape sequences, breaking one level of nesting.
+
+To finish editing, press =C-c C-c=. To abort, press =C-c C-k=.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "string-edit-autoloads"
+    '(progn
+       (if (require 'string-edit nil t)
+           (progn
+             (global-set-key "\C-ce" 'string-edit-at-point)
+             (define-key string-edit-mode-map (vector 'remap 'kill-this-buffer) 'string-edit-abort))
+         (message "WARNING: string-edit not found"))))
+#+END_SRC
+
+As a side note, for the particular case of editing regular expressions, you can
+also use the command =M-x re-builder= to interactively construct highly
+sophisticated expressions.
+
+* Parenthesis for Dummies
+
+I'm kind of ashamed to be the author of =dummyparens= mode. But I tried not to
+be one really hard.
+
+The thing is, I wanted a really simple auto-pairing functionality with only 2
+requirements:
+
+- after I press =(=, =[=, " or ={= it should behave as if I pressed the key of
+  the corresponding closing pair immediately
+- if the region is selected, when I press an opening symbol, it should be
+  wrapped
+
+Simple as that. Easiest thing in the world. But not only I didn't find a
+built-in solution for that, I didn't find a decent solution at all!
+
+The first option was, obviously, =electric-pair=. It's built-in and
+lightweight - great. But for some reason it doesn't insert the closing pair if
+the following character is non-whitespace. It also doesn't support wrapping.
+
+The next promising candidate was =autopair= supporting both auto-pairing and
+wrapping. It was "almost there", but there were 2 reasons why I couldn't live
+with it:
+
+- It uses =insert= function to insert symbols and, generally speaking, it's not
+  quite correct to do so. Like, for example, =cc-mode= has it's own binding for
+  opening parenthesis - =c-electric-paren=, which sometimes indents the current
+  line among other things. So, if you're using =autopair=, you're losing this
+  behavior.
+- The other thing is that =autopair= is doing a lot of fancy stuff
+  out-of-the-box, so I constantly had to fight my way to make it as unobtrusive
+  as possible.
+
+Probably, after fighting long enough, I could make =autopair= work as I
+wanted. But why fight so hard, if I knew I could implement the desired
+functionality with a much smaller effort?
+
+Before I went on with =dummyparens=, my last try was =smartparens=. The
+description was thoughtful and sensible. But when I tried it... Oh, my God. The
+thing was putting overlays on braces, had some notion of state and printed
+messages to the echo area - all of this for a pair of braces.
+
+It was the point when I exclaimed "That does it! I'm writing my own auto-pairing
+mode! With no obtrusion and wrapping!"
+
+The key points of the mode are:
+- It's under 100 lines of code.
+- When you press an opening pair key, it issues the exact same command as if the
+  mode was off. Then it "presses" the closing pair key (i.e. issues the exact
+  same command as if the mode was off)
+- If the region is selected - it is wrapped.
+- Optionally, it runs a "post-handler" hook, which can be any function you want.
+  Personally, I have a single hook, enabled for curly braces (={=). It indents
+  the just wrapped region - very convenient for languages from the C-family.
+
+I could easily fit these 100 lines of code in the configuration file. But I want
+to believe, that I'm not crazy. That somebody else might find this functionality
+useful as well.
+
+P.S. I have found more or less decent built-in solution after using
+=dummyparens= for about 2 years. The solution was to use the
+=skeleton-pair-insert-maybe= function. Unfortunately (or luckily), it fails
+short the same way =autopair= does. It doesn't exactly "press" the keys, but
+rather uses =self-insert-command=, which is not correct in general case. Also,
+it has an annoying half of a second delay after inserting the closing pair. And
+it doesn't have the shiny auto-indentation functionality for ={=, which I became
+addicted to over the years, and also... Aargh! Forget it! Simply use
+=dummyparens= - this whole subject isn't worth that many words.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "dummyparens-autoloads"
+    '(progn
+       (if (require 'dummyparens nil t)
+           (global-dummyparens-mode)
+         (message "WARNING: dummyparens not found"))))
+#+END_SRC
+
+For the opposite functionality - removing parenthesis in pair - I use =C-H=
+binding, backed by the =paredit= mode. The mode has far more features and,
+actually, provides a somewhat revolutionary way to edit Abstract Syntax Trees
+(AST) directly. But I don't write a lot of Lisp and I even don't write a lot of
+HTML. So, I don't have a strong need for that kind of editing power.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "paredit-autoloads"
+    '(progn
+       (when (require 'paredit nil t)
+         (global-set-key (kbd "C-S-h") 'paredit-splice-sexp))))
+#+END_SRC
+
+Also, it's good to see matching symbols of the pairs. Packages, like
+=rainbow-delimeters=, are too much for me, but the built-in solution is
+precisely what the doctor ordered.
+
+#+BEGIN_SRC emacs-lisp
+  (show-paren-mode 1)
+  (setq-default show-paren-delay 0)
+#+END_SRC
+
+* Programming languages
+** Eglot
+
+I'm just starting to use =eglot= and it seems promising. Will be tinkering it to
+my needs here.
+
+#+BEGIN_SRC emacs-lisp
+  ;; (setq eglot-ignored-server-capabilities '(:documentHighlightProvider))
+  (use-package eglot
+    :custom-face
+    (eglot-mode-line ((nil (:inherit nil :weight normal)))))
+#+END_SRC
+
+** Eldoc
+
+#+BEGIN_SRC emacs-lisp
+  (use-package eldoc
+    :custom
+    (eldoc-echo-area-use-multiline-p nil))
+#+END_SRC
+
+** Compile
+
+All I really need for programming is =C-c C-c= to issue =compile= command and
+being able to jump to the line with the error from the compilation buffer.
+
+The only nifty trick I find particularly useful is to make =compile-command=
+variable buffer-local. After that each buffer will remember what compilation
+command was issued from it and suggest it on a successive call. This replaces
+all the "project management" nonsense for me. It's very simple, flexible and
+convenient at the same time. Truly, great stuff.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'compile)
+  (make-variable-buffer-local 'compile-command)
+  (global-set-key "\C-c\C-c" 'compile)
+
+  ;; auto-scroll until first error
+  (setq-default compilation-scroll-output (quote first-error))
+#+END_SRC
+
+And also, as you may know, =compile-mode= buffers are read-only, so you can't
+really provide it input from the keyboard. In most cases, if the keyboard input
+is necessary, I simply run the programs via =M-&=. But if I compile and run such
+programs by a single command (i.e. =g++ hello.cpp && ./a.out=), I use
+=comint-mode= (=C-u C-c C-c=). In this case, I don't want the experience to be
+much different from plain =compile-mode=.
+
+#+BEGIN_SRC emacs-lisp
+  ;; fontify last line in comint-mode
+  (add-to-list 'compilation-mode-font-lock-keywords
+               '("^Comint \\(finished\\).*"
+                 (1 compilation-info-face)))
+  (add-to-list 'compilation-mode-font-lock-keywords
+               '("^Comint \\(exited abnormally\\|interrupt\\|killed\\|terminated\\|segmentation fault\\)\\(?:.*with code \\([0-9]+\\)\\)?.*"
+                 (1 compilation-error-face)
+                 (2 compilation-error-face nil t)))
+
+  ;; bind common keys to behave similar to plain compile-mode
+  (define-key comint-mode-map "\C-c\C-k" 'kill-compilation)
+  (define-key comint-mode-map "g"
+    (defun comint-g-or-recompile (N)
+      (interactive "p")
+      (if (or
+           (comint-check-proc (current-buffer))
+           ()
+           )
+          (self-insert-command N)
+        (recompile))))
+#+END_SRC
+
+** Python
+
+Probably, the most prominent package for Python development is =elpy=. At least
+it was, when I checked last time. It has all the "cool kids" features:
+auto-completion, refactoring, documentation access, etc.
+
+Personally, I don't find those features to be a big deal. So, when =elpy=
+explicitly refused to work on a remote python script, I removed it without
+second thought.
+
+I also don't really need a shell (or REPL), since I'm not used to interpreters.
+But if I'm to pick one for Python, it will, obviously, be =ipython=.
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'python nil t)
+    (if (executable-find "ipython")
+        (setq-default
+         python-shell-interpreter "ipython"
+         python-shell-prompt-regexp "In \\[[0-9]+\\]: "
+         python-shell-prompt-output-regexp "Out\\[[0-9]+\\]: "))
+
+    (add-hook 'python-mode-hook
+              '(lambda ()
+                 (define-key python-mode-map (kbd "\C-c\C-c") 'compile)
+                 (define-key python-mode-map (kbd "\C-c\C-e") 'python-shell-send-buffer))))
+#+END_SRC
+
+** Markdown
+
+In my opinion, =markdown-mode= is somewhat overwhelming in its functionality. It
+binds too many combinations to the extent when it starts to feel obtrusive.
+
+If I were to implement a Markdown mode, I would try to mimic it as closely to
+=org-mode= as possible. But, apparently, =markdown-mode= authors have another
+point of view, so the mode is different in almost everything it does.
+
+Personally, I use only 2 features of this mode: syntax highlighting and a
+=markdown-export= function (=C-c C-e=).
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "markdown-mode-autoloads"
+    '(progn
+       (if (require 'markdown-mode nil t)
+           (progn
+             (setq auto-mode-alist (cons '("\\.md" . markdown-mode) auto-mode-alist))
+
+             (define-key markdown-mode-map (kbd "M-p") nil)
+             (define-key markdown-mode-map (kbd "M-n") nil)
+             (define-key markdown-mode-map (kbd "\C-c\C-c") nil)
+             (define-key markdown-mode-map (kbd "\C-c\C-e") 'markdown-export))
+         (message "WARNING: markdown-mode not found"))))
+#+END_SRC
+
+** D
+
+The only unusual thing about this mode is that it alters the default syntax
+indentation. It lines up the dots in situations, like
+
+#+BEGIN_EXAMPLE
+  foreach (file; dirPath.expandTilde()
+                        .buildNormalizedPath()
+                        .dirEntries(SpanMode.shallow)()
+#+END_EXAMPLE
+
+There's kind of a funny story around this functionality. Somebody asked a
+[[https://stackoverflow.com/questions/25797945/adjusting-alignment-rules-for-ucfs-chains-in-d][question]] on StackOverflow about how you can achieve this. I got interested and
+started to dig.
+
+Surprisingly, there was a built-in function for that, called
+=c-lineup-cascaded-calls=, so all you had to do is to put it in the right place.
+But where is that place?
+
+Turns out there's a =c-offsets-alist= variable, which contains the indentation
+rules in the following format: =(<applicable place> . <rule>)=. Here,
+=<applicable place>= stands for a keyword understood by the C indentation
+engine, like =statement-cont= (continuation of the statement).
+
+So far, so good. The =statement-cont= keyword worked like a charm. But it didn't
+work for the particular case from the question. Apparently, there was some other
+keyword for that place and I had to find out what it was.
+
+After a long trial and error session, I found out there's a variable
+=c-echo-syntactic-information-p=. One can set it to =t= and on every indentation
+call after that, the information about current position will be displayed in the
+echo area.
+
+The keyword I was looking for turned out to be =arglist-cont-nonempty=.
+
+But it was only a half of the problem. The =c-lineup-cascaded-calls= function
+didn't work in some important cases:
+
+- when function calls didn't have any parenthesis (which are optional in D)
+- when calling a function with compile-time parameters, e.g.
+  =func!(compiletime)(runtime)=
+
+I posted a dirty rewrite of =c-lineup-cascaded-calls= to the StackOverflow
+answer and it went right down to the =d-mode= repository, so I had to enable it
+in my setup. Not that I find this indentation strategy particularly useful, but
+I don't feel like dropping it after spending so much effort.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "d-mode-autoloads"
+    '(progn
+       (when (require 'd-mode nil t)
+         (when (fboundp 'd-lineup-cascaded-calls)
+           (add-hook 'd-mode-hook
+                     '(lambda ()
+                        (add-to-list 'c-offsets-alist '(arglist-cont-nonempty . d-lineup-cascaded-calls))
+                        (add-to-list 'c-offsets-alist '(statement-cont . d-lineup-cascaded-calls)))))
+         (setq auto-mode-alist
+               (append '(("\\.d\\'" . d-mode)
+                         ("\\.di\\'" . d-mode))
+                       auto-mode-alist)))))
+#+END_SRC
+
+** C and C++
+
+There are just a couple of minor things about C and C++:
+- I don't make a difference between them and treat everything as C++. It also
+  goes for CUDA sources as well.
+- =C-c C-o= is bound to =ff-find-other-file=. This function is pretty simple and
+  it doesn't work very well for a lot of common source code layouts, but it
+  comes in handy, when you can use it.
+- I use the "bsd" code formatting style with basic offset of 4 by default.
+- =C-c .= is bound to =c-guess-buffer= for cases, when I have to modify the code
+  that has some alien formatting style.
+
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
+  (add-to-list 'auto-mode-alist '("\\.c\\'" . c++-mode))
+  (add-to-list 'auto-mode-alist '("\\.cu\\'" . c++-mode))
+  (add-to-list 'auto-mode-alist '("\\.cuh\\'" . c++-mode))
+  (add-hook 'c-mode-common-hook
+            '(lambda ()
+               (define-key c-mode-base-map "\C-c\C-o"
+                 'ff-find-other-file)
+               (define-key c-mode-base-map (kbd "C-c .")
+                 'c-guess-buffer)
+
+               (define-key c-mode-base-map "\C-c\C-c"    nil)
+               (define-key c-mode-base-map (kbd "C-M-h") nil)
+               (define-key c-mode-base-map (kbd "M-j")   nil)
+
+               ;; set //-style comments for c-mode
+               (setq comment-start "//" comment-end "")))
+
+  (setq-default c-basic-offset 4)
+  (setq-default c-default-style (quote ((c-mode . "bsd") (c++-mode . "bsd") (d-mode . "bsd") (java-mode . "java") (awk-mode . "awk") (other . "gnu"))))
+#+END_SRC
+
+** Emacs Lisp
+
+Emacs has a surprisingly good support for writing Emacs Lisp. It has fabulous
+out-of-the-box solutions for debugging (=edebug=), testing (=ert=), documenting
+and navigating the source code. The tweaking I do is mostly cosmetic.
+
+When you run the tests using =M-x ert=, it creates a buffer with the results.
+And since I'm used to using =g= to revert the contents of such "not-really-text"
+buffers, it's better for it to work there as well.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'ert)
+  (define-key ert-results-mode-map "g"
+    'ert-results-rerun-all-tests)
+#+END_SRC
+
+For jumping to symbol definitions I use the tags machinery. You can read about
+it in the respective section. In short, you index your source code first, then
+load an index file (called "tags file" or "tags table") and search through it
+looking for necessary symbols.
+
+But since Emacs knows about all the Emacs Lisp symbols, that are defined, you
+don't need an explicit step of tags generation. You can use =M-.= and =M-*=
+commands in the exact same manner with just a little tweaking.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'etags)
+  (define-key emacs-lisp-mode-map (kbd "M-.")
+    (defun find-function-push-tag (function)
+      "This function is meant as a drop-in replacement for find-tag
+    in emacs-lisp-mode. It calls find-function and inserts current
+    position into find-tag-marker-ring."
+      (interactive (find-function-read))
+      (ring-insert find-tag-marker-ring (point-marker))
+      (find-function function)))
+#+END_SRC
+
+** Log files
+
+Log files are not specific to any particular programming language. But the thing
+all logs have in common is that those are often cumulative. So, you, probably,
+want to update the contents of log files as they appear. =auto-revert-tail-mode=
+makes it possible.
+
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.log\\'" . auto-revert-tail-mode))
+#+END_SRC
+
+** Miscellaneous
+
+Nothing special, really. Here, I mostly specify mode extensions and disable the
+mode-local bindings, so global bindings are used instead.
+
+#+BEGIN_SRC emacs-lisp
+  (global-eldoc-mode -1)
+#+END_SRC
+
+*** YAML
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "yaml-mode-autoloads"
+    '(progn
+       (if (require 'yaml-mode nil t)
+           (add-to-list 'auto-mode-alist '("\\.yml$" . yaml-mode))
+         (message "WARNING: yaml-mode not found"))))
+#+END_SRC
+
+*** CMake
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "cmake-mode-autoloads"
+    '(progn
+       (when (require 'cmake-mode nil t)
+         (setq auto-mode-alist
+               (append '(("CMakeLists\\.txt\\'" . cmake-mode)
+                         ("CMakeCache\\.txt\\'" . cmake-mode)
+                         ("\\.cmake\\'" . cmake-mode))
+                       auto-mode-alist)))))
+#+END_SRC
+
+*** Shell scripts
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'sh-script nil t)
+    (define-key sh-mode-map "\C-c\C-c" nil)
+    (define-key sh-mode-map "\C-c\C-o" nil))
+#+END_SRC
+
+*** .ini configs
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'conf-mode nil t)
+    (define-key conf-mode-map "\C-c\C-c" nil))
+#+END_SRC
+
+*** Shell
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'shell nil t)
+    (define-key shell-mode-map (kbd "\C-c\C-o") nil))
+#+END_SRC
+
+*** Octave
+
+#+BEGIN_SRC emacs-lisp
+  (add-to-list 'auto-mode-alist '("\\.m\\'" . octave-mode))
+#+END_SRC
+*** Makefiles
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'make-mode nil t)
+    (define-key makefile-mode-map (kbd "\C-c\C-c") nil))
+#+END_SRC
+
+* Shell commands
+
+Most of the time, I use one of two ways to issue a shell command - =M-&= or =C-c
+C-c=. The differences are not that big, but quite important:
+
+- There can exist only one compile buffer at a given moment. So, if a
+  compilation is in progress, =compile= execution will ask you if you want to
+  terminate the ongoing thing. On the contrary, you can have arbitrarily many
+  asynchronous shell commands at any time.
+- Compile buffer is read-only and async-shell buffers are editable.
+- =compile-mode= colors the output and parses it to be able to jump to source
+  code. =shell-mode= doesn't do anything fancy.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default async-shell-command-buffer (quote new-buffer))
+#+END_SRC
+* Get full path
+
+Quite often you need a full path to some file, and there's plenty of ways to get
+it.
+
+- First, obviously, you can press =C-x C-f= and find your file there.
+- Then, in Dired you can press =w= to get only the name or =C-0 w= to get the
+  full path.
+- Also, you can use the =C-c w= binding to get full path to the current file
+  #+BEGIN_SRC emacs-lisp
+    (define-key global-map (kbd "\C-c w")
+      (defun show-file-name ()
+        "Show the full path file name in the minibuffer and add it to kill ring"
+        (interactive)
+        (message (buffer-file-name))
+        (kill-new (buffer-file-name))))
+  #+END_SRC
+- And last, but not least, if you have a short path around point, you can use
+  =C-x /= to expand it to a full path. I use this quite often in conjunction
+  with buffer-local =compile-command= setting. If I have a script that I want to
+  run using =compile=, I do the following:
+  - open the script (say, =build-and-run.bash=) and press =C-c C-c=
+  - write =cd .=
+  - press =C-x /= to expand the dot (say, =cd /home/sergei/project/build=)
+  - append script execution - =cd /home/sergei/project/build && bash
+    build-and-run.bash=
+
+  Now I can switch to another buffer, press =M-p= after =C-c C-c= and use the
+  same compile command, because the path is absolute.
+
+  #+BEGIN_SRC emacs-lisp
+    (define-key global-map (kbd "C-x /")
+      (defun replace-path-with-truename ()
+        "Replaces the region or the path around point with its true name.
+
+    To get the true name it follows the symbolic links and converts
+    relative paths to absolute."
+        (interactive)
+        (let (bds p1 p2 inputStr resultStr)
+          ;; get current selection or filename
+          (if (region-active-p)
+              (setq bds (cons (region-beginning) (region-end) ))
+            (setq bds (bounds-of-thing-at-point 'filename)))
+          (setq p1 (car bds))
+          (setq p2 (cdr bds))
+
+          (let ((fn (buffer-substring-no-properties p1 p2)))
+            (if (file-exists-p fn)
+                (progn
+                  (delete-region p1 p2 )
+                  (insert (file-truename fn)))
+              (message "Path \"%s\" doesn't exist" fn))))))
+  #+END_SRC
+
+* Magit
+
+There's not enough words in any human language to describe the brilliance of
+=magit=. So, let's simply take a minute and think about cosmic order of things
+in silence.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "magit-autoloads"
+    '(progn
+       (if (require 'magit nil t)
+           (progn
+             (require 'gitignore-mode nil t)
+             (require 'gitconfig-mode nil t)
+             (require 'gitattributes-mode nil t)
+
+             (setq magit-last-seen-setup-instructions "1.4.0")
+
+             (setq
+              magit-revert-item-confirm nil
+              magit-diff-refine-hunk t
+              magit-push-always-verify nil)
+
+             (define-key magit-mode-map [C-tab] nil)
+             (define-key magit-mode-map (kbd "M-w") nil)
+
+             ;; push stashes to the bottom of the status buffer
+             (delete 'magit-insert-stashes magit-status-sections-hook)
+             (add-to-list 'magit-status-sections-hook 'magit-insert-stashes t)
+
+             (global-set-key (kbd "\C-c m")   'magit-status)
+             (global-set-key (kbd "\C-c RET") 'magit-status)
+             (global-set-key (kbd "\C-x v b") 'magit-blame))
+         (message "WARNING: magit not found"))))
+#+END_SRC
+* Ediff
+
+In the pre-magit era I had to provide ediff interface as an external tool to
+version control systems. It wasn't the cleanest experience, but it worked.
+
+Fortunately, now we don't have to resort to hacks like this - we can simply
+press =e= in magit buffer - both to see the diff and resolve conflicts.
+
+The only thing is that the default ediff user experience comes from a stone age,
+so I had to tweak it a bit.
+
+First, a couple of functions to automatically save and restore window
+configuration after ediff session.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'ediff)
+
+  (defun ediff-save-window-configuration ()
+    (window-configuration-to-register ?E))
+  (defun ediff-restore-window-configuration ()
+    (jump-to-register ?E))
+
+  (setq-default ediff-before-setup-hook (quote (ediff-save-window-configuration)))
+  (setq-default ediff-quit-hook (quote (ediff-cleanup-mess ediff-restore-window-configuration exit-recursive-edit)))
+  (setq-default ediff-suspend-hook (quote (ediff-default-suspend-function ediff-restore-window-configuration)))
+#+END_SRC
+
+Ediff shouldn't create other frames. Everything should stay in the same frame
+I'm working in. And splitting should be horizontal (i.e. side-by-side).
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default ediff-window-setup-function (quote ediff-setup-windows-plain))
+  (setq-default ediff-split-window-function (quote split-window-horizontally))
+#+END_SRC
+
+Also, I prefer that the difference regions are always highlighted, not just when
+those are "active". And, of course, it's more convenient when the diff is
+refined by chars, not words.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default ediff-highlight-all-diffs t)
+  (setq-default ediff-forward-word-function 'forward-char)
+#+END_SRC
+
+The last thing is that the default colors are not very pretty, so I replaced
+them with something that looks like kdiff3 default theme, because it was my
+previous favorite diff viewing tool.
+
+#+BEGIN_SRC emacs-lisp
+  (set-face-attribute 'ediff-current-diff-A nil :background "white" :foreground "black")
+  (set-face-attribute 'ediff-current-diff-Ancestor nil :background "white" :foreground "black")
+  (set-face-attribute 'ediff-current-diff-B nil :background "white" :foreground "black")
+  (set-face-attribute 'ediff-current-diff-C nil :background "white" :foreground "black")
+  (set-face-attribute 'ediff-even-diff-A nil :background "antique white" :foreground "Black")
+  (set-face-attribute 'ediff-even-diff-Ancestor nil :background "antique white" :foreground "black")
+  (set-face-attribute 'ediff-even-diff-B nil :background "antique white" :foreground "black")
+  (set-face-attribute 'ediff-even-diff-C nil :background "antique white" :foreground "Black")
+  (set-face-attribute 'ediff-fine-diff-A nil :background "gainsboro" :foreground "blue")
+  (set-face-attribute 'ediff-fine-diff-Ancestor nil :background "gainsboro" :foreground "red")
+  (set-face-attribute 'ediff-fine-diff-B nil :background "gainsboro" :foreground "forest green")
+  (set-face-attribute 'ediff-fine-diff-C nil :background "gainsboro" :foreground "purple")
+  (set-face-attribute 'ediff-odd-diff-A nil :background "antique white" :foreground "black")
+  (set-face-attribute 'ediff-odd-diff-Ancestor nil :background "antique white" :foreground "black")
+  (set-face-attribute 'ediff-odd-diff-B nil :background "antique white" :foreground "Black")
+  (set-face-attribute 'ediff-odd-diff-C nil :background "antique white" :foreground "black")
+#+END_SRC
+* Diff
+
+I would really love to have only color-theme-related configuration in that
+section. But there's something awfully broken with the default behavior of
+diff-mode.
+
+The darn thing changes the headers of the patch upon saving. It does it by
+default, without asking and even if it cannot fix them properly. I guess, this
+feature was so useful back then, that everybody was taking it as a given. And,
+probably, everybody was always keeping the patches in the directories where they
+apply.
+
+Well, believe it or not, but sometimes I do put patches in the directories,
+where they don't apply. For example, patches generated by =git diff= usually
+don't apply no matter where you put them (because of the =a/=, =b/= prefixes).
+
+I don't need Emacs to ruin the headers when I edit those patches. Luckily,
+there's a variable =diff-update-on-the-fly= that turns this behavior on and off.
+Unluckily, it doesn't work. It seemed to work one day, so maybe it's a
+regression. But it clearly doesn't work in Emacs 24.4.
+
+So, I had no other choice, rather than performing surgery on =diff-mode=
+overriding its =diff-write-contents-hooks= to do nothing.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load 'diff-mode
+    '(progn
+       (setq-default diff-update-on-the-fly nil)
+       (defun diff-write-contents-hooks ()
+         "PLEASE, DO NOTHING TO MY DIFFS!!!!"
+         nil)
+
+       (set-face-attribute 'diff-added nil :background nil :foreground "green")
+       (set-face-attribute 'diff-refine-added nil :background "#338833")
+       (set-face-attribute 'diff-file-header nil :background "black" :weight 'bold)
+       (set-face-attribute 'diff-header nil :background "black")
+       (set-face-attribute 'diff-removed nil :background nil :foreground "tomato")
+       (set-face-attribute 'diff-refine-removed nil :background "#553333")))
+#+END_SRC
+
+* Ido selection
+
+As software evolution goes, certain designs tend to become some kind of a
+standard. They turn out to be such a success, that, basically, everybody employ
+it. And when sometimes you see a different solution - you feel awkward, at
+least.
+
+Like, for example, it's not that easy to find a modern widespread editor without
+"tabs", i.e. some kind of bookmarks at the top. And every desktop browser (that
+I know of) uses this "tabs" design to allow switching between different pages.
+
+"Buffers and windows" system of Emacs serves the same purpose as "tabs"
+system. But from my point of view, it's a much better design.
+
+Admittedly, I felt awkward using it at first. However, =ido= made this
+awkwardness feel pleasant. Now I'll give it away only when you pry it from my
+cold, dead hands.
+
+For me, it works great as is. I don't see a point of =ido-flx= and relatives,
+and I like vanilla "horizontal" ido more than "vertical" modification. So, the
+only interesting thing I can tell about my =ido= setup is that buffer switching
+is bound to =C-TAB=.
+
+Obviously, the idea came from desktop browsers. The main reason I use it - it's
+a shorter and more convenient alternative to =C-x b=. But there's one more thing
+about it, which was a nice surprise to me - =C-TAB= is not representable by an
+ASCII sequence, so it won't work in a terminal.
+
+You may ask how is this a good thing? Well, because if I use terminal, I use it
+inside Emacs via =ansi-term= most of the time. If the sequence would've been
+ASCII one, then it Emacs would send it to terminal instead of executing =ido=.
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'ido nil t)
+    (ido-mode 1)
+    (setq-default ido-enable-flex-matching t)
+    (setq-default read-buffer-completion-ignore-case t)
+    (setq-default read-file-name-completion-ignore-case t)
+
+    (global-set-key [C-tab] 'ido-switch-buffer))
+#+END_SRC
+
+There are some modes, like, =ido-ubiquitous=, which enable =ido= in almost every
+"completing situation". But I find that =ido= doesn't really shine in a lot of
+other situations, so I prefer using it only for buffers, files and =M-x=
+completions. For the latter I use =smex=, because it feels natural, while some
+other solutions I tried don't.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "smex-autoloads"
+    '(progn
+       (if (require 'smex nil t)
+           (progn
+             (smex-initialize)
+             (global-set-key (kbd "M-x") 'smex))
+         (message "WARNING: smex not found"))))
+#+END_SRC
+
+* Buffer list
+
+Not a lot of people know about this, but the trend to add "i"s to words to make
+them look iCool was popular in Emacs long before Apple had came about. Behold:
+ibuffer. Frankly, I don't use it much, but it's nice to have it when you do need
+it.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'ibuffer nil t)
+  ;; ibuffer groups
+  (setq-default ibuffer-saved-filter-groups
+                (quote (("default"
+                         ("org"  (mode . org-mode))
+                         ("dired" (mode . dired-mode))
+                         ("D" (mode . d-mode))
+                         ("C/C++" (or
+                                   (mode . cc-mode)
+                                   (mode . c-mode)
+                                   (mode . c++-mode)))
+                         ("magit" (name . "^\\*magit"))
+                         ("Markdown" (mode . markdown-mode))
+                         ("emacs" (name . "^\\*Messages\\*$"))
+                         ("shell commands" (name . "^\\*.*Shell Command\\*"))))))
+  (add-hook 'ibuffer-mode-hook
+            (lambda ()
+              (ibuffer-switch-to-saved-filter-groups "default")))
+
+  (global-set-key (kbd "\C-x \C-b") 'ibuffer)
+#+END_SRC
+
+* Using external websites
+
+Googling today became so common, that the corresponding word became an official
+English word according to the Oxford dictionary. Now, we take it to another
+level, and add an Emacs keybinding to google!
+
+If the region is selected when you press =C-c g=, it will google it. Otherwise,
+it will query the text to be googled.
+
+Similarly, you can use =C-c l= to lingvo something (translate from Russian to
+English or vice versa) and =C-c u= to Urban Dictionary something.
+
+There's a built-in =webjump= mode serving the exact same purpose and maybe I
+will migrate to it someday. But for now, I just use these simple hand-written
+functions.
+
+#+BEGIN_SRC emacs-lisp
+  (defmacro url-do-it (backend-name query-beginning docstring)
+    `(defun ,(intern (format "%s-it" (mapconcat 'identity (split-string (downcase backend-name)) "-"))) ()
+       ,(format "%s the selected region if any, display a query prompt otherwise" docstring)
+       (interactive)
+       (browse-url
+        (concat
+         ,query-beginning
+         (url-hexify-string (if mark-active
+                                (buffer-substring (region-beginning) (region-end))
+                              (read-string (concat ,backend-name ": "))))))))
+
+  (global-set-key (kbd "\C-cg") (url-do-it "Google" "http://www.google.com/search?ie=utf-8&oe=utf-8&q=" "Google"))
+  (global-set-key (kbd "\C-cl") (url-do-it "Lingvo" "http://lingvopro.abbyyonline.com/en/Translate/en-ru/" "Translate (using Lingvo)"))
+  (global-set-key (kbd "\C-cu") (url-do-it "Urban Dictionary" "http://www.urbandictionary.com/define.php?term=" "Find a definition in Urban Dictionary for"))
+#+END_SRC
+
+* Window management
+** Selecting windows
+
+Emacs has at least 4 different bindings to provide a prefix argument to a
+function:
+1. =C-u <argument> <command>=
+2. =C-<argument> <command>=
+3. =M-<argument> <command>=
+4. =C-M-<argument> <command>=
+
+I can understand why you need an alternative to the first option. But why do you
+need all of 2, 3 and 4, which are about the same? Especially, given those
+bindings are quite attractive - brief and convenient - something you have a
+shortage of.
+
+I believe, it's obvious that 2 of those should be bound to something else. We
+only have to find an appropriate functionality.
+
+Previously, I used =C-x o= binding to switch windows. And it works fine, when
+you have only 2 of them. Admittedly, for me, it's the case 95% of the time. The
+remaining 5% weren't very pleasant, but I thought, that it's something I can
+live with.
+
+Then I came across the =window-numbering= mode which made a lot of sense to me.
+Using =M-<number>= to switch windows is a perfect match!
+
+At first, I didn't use it that often, because of the habit. But every time I was
+in the "5% zone" I was immediately rescued by =window-numbering= mode. Now,
+having it around for quite some time, I find myself using it more and more
+often.
+
+In fact, this mode makes so much sense to me, that when I advertise Emacs to
+others, I present =window-numbering= way of windows switching as a default
+one. And I haven't yet seen anybody to have issues with that. (That said, most
+likely, it won't work if you try it in a terminal emulator).
+
+The last thing I should mention is that =M-0= takes you to minibuffer by
+default, which is also very handy.
+
+A very nice mode.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "window-numbering-autoloads"
+    '(progn
+       (if (require 'window-numbering nil t)
+           (window-numbering-mode 1)
+         (message "WARNING: window-numbering-mode not found"))))
+#+END_SRC
+
+** Handy functions
+
+As I've said, I use 2 buffers almost all the time. And I have a few handy
+functions for that case.
+
+1. Toggle window split
+
+   #+BEGIN_SRC emacs-lisp
+     (define-key global-map (kbd "\C-c f")
+       (defun toggle-window-split ()
+         "Switches from a horizontal split to a vertical split and vice versa."
+         (interactive)
+         (if (= (count-windows) 2)
+             (let* ((this-win-buffer (window-buffer))
+                    (next-win-buffer (window-buffer (next-window)))
+                    (this-win-edges (window-edges (selected-window)))
+                    (next-win-edges (window-edges (next-window)))
+                    (this-win-2nd (not (and (<= (car this-win-edges)
+                                                (car next-win-edges))
+                                            (<= (cadr this-win-edges)
+                                                (cadr next-win-edges)))))
+                    (splitter
+                     (if (= (car this-win-edges)
+                            (car (window-edges (next-window))))
+                         'split-window-horizontally
+                       'split-window-vertically)))
+               (delete-other-windows)
+               (let ((first-win (selected-window)))
+                 (funcall splitter)
+                 (if this-win-2nd (other-window 1))
+                 (set-window-buffer (selected-window) this-win-buffer)
+                 (set-window-buffer (next-window) next-win-buffer)
+                 (select-window first-win)
+                 (if this-win-2nd (other-window 1)))))))
+
+   #+END_SRC
+
+2. Swap buffers in windows
+
+   #+BEGIN_SRC emacs-lisp
+     (define-key global-map (kbd "\C-c s")
+       (defun swap-buffers-in-windows ()
+         "Put the buffer from the selected window in next window"
+         (interactive)
+         (let* ((this (selected-window))
+                (other (next-window))
+                (this-buffer (window-buffer this))
+                (other-buffer (window-buffer other)))
+           (set-window-buffer other this-buffer)
+           (set-window-buffer this other-buffer)
+           ;; comment next call to stay in current window
+           (select-window other))))
+   #+END_SRC
+
+   Note, this function can be used not only for swapping 2 buffers, but also for
+   "dragging" the current buffer to some other window, when there's more than 2
+   of them. This is similar to how you can use consecutive invocations of
+   =transpose-words= to "drag" the word forward.
+
+3. Duplicate selected window
+
+   #+BEGIN_SRC emacs-lisp
+     (define-key global-map (kbd "\C-x d")
+       (defun duplicate-selected-window ()
+         "Display current buffer in the adjacent window. If selected
+     window is the only one, split the frame vertically beforehand."
+         (interactive)
+         (when (<= (length (window-list)) 1)
+           (split-window-right))
+         (let ((buf (current-buffer)))
+           (other-window 1)
+           (set-window-buffer nil buf))))
+   #+END_SRC
+
+* Embedded lisp evaluation
+
+One particularly unusual thing about Emacs for somebody coming from a "common"
+development environment is that you always have an executable language right
+under your cursor.
+
+It is difficult to acknowledge this properly until you get used to elisp. But
+once you're at the level, where you can write a small function, you will find
+yourself using it more and more often in a variety of cases.
+
+Emacs has a built-in binding =C-x C-e=, which evaluates elisp form on the left
+from the cursor (i.e. previous form). The default functionality prints the
+result to the echo area, leaving the form as is. But quite often it is pretty
+useful to write some small form in non-elisp buffer, evaluate it and paste the
+result into the buffer instead of the form.
+
+E.g. you're writing a technical article, and at some point you need a value for
+a quarter of Pi. Probably, a lot of people know several digits of Pi.
+=3.14159265358= - that's how many I know by heart. Probably, a lot of people
+also know some digits of half-Pi and twice-Pi. For me, it's just 3 digits in
+both cases - =1.57= and =6.28=. But do a lot of people remember what is the
+quarter of Pi? I can't name a single digit (except for the leading zero) without
+performing an evaluation.
+
+But why bother, when you can write =(/ 3.1415 4)=, hit =C-x C-e= and it will be
+replaced with =0.785375=. Of course, you can also write =(/ float-pi 4)=. You
+can also apply any other function you might need.
+
+And, obviously, you can use not only mathematical functions, but any of the
+variety of elisp functions. At the time of writing I have as much as =18272=
+functions available. Not all of them are particularly useful for that kind of
+usage, but still it gives you the perspective.
+
+The examples from my daily job include:
+
+1. Evaluate simple mathematical forms: =(+ 1 2 -9 16.16)=, =(sin (/ float-pi 2))=
+2. Get current date: =(format-time-string "%b %d, %Y")=
+3. Add leading zeros: =(format "%04d" 4)=
+
+If you want the form to stay in place and simply print the result to the echo
+area (the "old" behavior), then you should select it in a region before pressing
+=C-x C-e=.
+
+You can also evaluate the region in debugging mode - use the universal argument
+for that - =C-u C-x C-e=. If there's a function definition inside the selected
+region, then successive calls to that function will also happen in debug mode.
+To cancel this behavior, simply evaluate the respective function without a
+universal argument. This is similar to =C-M-x= / =C-u C-M-x= behavior in
+=emacs-lisp-mode=.
+
+#+BEGIN_SRC emacs-lisp
+  (defun eval-and-replace ()
+    "Replace the preceding sexp with its value."
+    (interactive)
+    (backward-kill-sexp)
+    (condition-case nil
+        (prin1 (eval (read (current-kill 0)))
+               (current-buffer))
+      (error (message "Invalid expression")
+             (insert (current-kill 0)))))
+
+  (defun eval-dispatch (arg)
+    "Evaluate previous sexp or region"
+    (interactive "P")
+    (if (region-active-p)
+        (let ((edebug-all-forms arg))
+          (eval-region (region-beginning) (region-end) t))
+      (eval-and-replace)))
+
+  (global-set-key (kbd "\C-x\C-e")    'eval-dispatch)
+#+END_SRC
+
+* Field applications
+
+Once, I was working on a panorama stitching algorithm. To test and improve it, I
+had to generate a 3D scene to experiment with different camera positions and
+fields of view. For example, I had to figure out something like: "Do we get good
+quality if we use four 55 degree cameras and place them like that?"
+
+After I generated the images of a 3D scene, I had to process those. And as you
+may know, for a computer vision application, the most common representation of
+camera intrinsic parameters is a /camera matrix/. It's a 3x3 matrix of the
+following form:
+
+| fx |  0 | px |
+|  0 | fy | py |
+|  0 |  0 | 1  |
+
+where =fx= and =fy= are the /focal lengths/ in x and y dimensions. This matrix
+is used to convert image coordinates to camera (world) coordinates and
+vice-versa.
+
+Focal length can be unambiguously evaluated given the field-of-view of the
+camera: focal = tan^{-1}(fov / 2). And, of course, you can make a conversion in
+the opposite direction: fov = 2 atan(focal^{-1}).
+
+This is not quantum physics, by all means. But I used these formulas rare enough
+to look them up every time and often enough to be annoyed by this. Add to the
+annoyance, that after I found the formula, I had to perform something like 5
+operations in =calc= to evaluate it.
+
+And at some point it struck me - I'm using Emacs, a text editor with a primary
+goal to allow me to build the best working environment for myself. Just for me,
+you know? It's not like some guy or a big company is trying to think of
+everything I might need. It cannot ever work like that. Because how should they
+know that I need those formulas? If I was working in some other place - I
+wouldn't need those formulas, probably, ever. And, more likely, I would need
+some other formulas.
+
+And maybe not even formulas, but something else. Like, just now, while I was
+writing this, a colleague of mine asked me "How you can take 2 videos and stack
+them vertically?". I wrote =ffmpeg-top-bottom= and hit =M-/=, it expanded to a
+command from my =.abbrev_defs= file and I sent it to her.
+
+She remembered, that I had already sent her this command previously, but she
+couldn't find it anywhere. I smiled about it and told her that she can ask me as
+many times as needed, because I always have it at hand.
+
+Anyway, long story short. The day I was thinking of focal lengths was the day
+when I really appreciated the "extensibility" part of Emacs. I wasn't too
+thrilled about it when I just started using the editor. I was always, like, "Why
+would I bother learning how to program a text editor and then, actually, spend
+time programming it?" or "Somebody else must have already built a perfect
+environment. I should simply find it and use it". As you can guess, I've never
+found this "perfect environment".
+
+But at that day, I've put the following functions to my init file and moved on
+enlightened. From that moment, when I need a conversion I just write something
+like =(fov2focal (deg2rad 55))= and hit =C-x C-e=.
+
+Yeah. At that day, I became a bit closer to my perfect working environment.
+
+#+BEGIN_SRC emacs-lisp
+  (defun deg2rad (x)
+    "Converts degrees to radians"
+    (/ (* x float-pi) 180.0))
+
+  (defun rad2deg (x)
+    "Converts radians to degrees"
+    (/ (* x 180.0) float-pi))
+
+  (defun fov2focal (fov)
+    "Evaluates dimensionless focal length given fov in radians"
+    (/ 1.0 (tan (/ fov 2.0))))
+
+  (defun focal2fov (focal)
+    "Evaluates fov in radians given dimensionless focal length"
+    (* 2.0 (atan (/ 1.0 focal))))
+#+END_SRC
+
+* Browse kill ring
+
+One of the greatest Emacs features is the kill ring.
+
+Everything you kill (i.e. cut) is stored in a ring (i.e. circular buffer). You
+have access to 60 (the number can be changed) most recently killed regions - not
+only the last one, as you do in a lot of other editors.
+
+The only inconvenience is that sometimes you want to search for something in the
+kill ring and there's no good built-in representation for it. You can press
+=M-y= until you find what you want, but it's not very pleasant. Inspecting the
+value of =kill-ring= variable doesn't improve the experience much.
+
+=browse-kill-ring= mode solves this problem by providing kill ring contents in a
+separate buffer. I bind it to =C-x C-y=, so it looks like something built-in.
+When you find what you need, simply press =C-m= (=Enter=) and that's it.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "browse-kill-ring-autoloads"
+    '(progn
+       (when (require 'browse-kill-ring nil t)
+         (global-set-key (kbd "C-x C-y") 'browse-kill-ring)
+         (define-key browse-kill-ring-mode-map (kbd "C-c C-k") 'browse-kill-ring-quit)
+         (define-key browse-kill-ring-mode-map (kbd "C-x C-k") 'browse-kill-ring-quit)
+         (define-key browse-kill-ring-mode-map (kbd "C-x k") 'browse-kill-ring-quit)
+         (setq browse-kill-ring-quit-action 'save-and-restore))))
+#+END_SRC
+
+* Navigate to previous position
+
+Oddly enough, Emacs doesn't really have a solid functionality to jump to a
+"previous editing position". The closest solution is to use =C-u C-SPC= to jump
+to a previous mark in the current buffer and =C-x C-SPC= to jump to a previous
+mark across buffers. It's not fantastic, but works reasonably well, since the
+chances that you'll have a mark at every "interesting" position are quite good.
+
+The only thing is that often there are a lot of duplicate marks in the ring and
+it's tedious to pop those by one. So, I have a simple wrapper bound to =C-M-\= -
+it works as =C-u C-SPC=, but ignores duplicate marks. If you provide it a
+universal argument, it works as =C-x C-SPC= in that case.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map (kbd "C-M-\\")
+    (defun pop-mark-jump (arg)
+      "Jump to the mark "
+      (interactive "P")
+      (if arg
+          (pop-global-mark)
+        (delete-dups mark-ring)
+        (set-mark-command '(4)))))
+#+END_SRC
+
+For a similar functionality, you may also find =goto-chg= package useful, which
+seems to be pretty popular. However, personally, I'm happy with the mark-based
+solution presented above.
+
+* Multiple cursors
+
+"Multiple cursors" is a kind of feature that doesn't sound like a very good idea
+the first time you hear about it. It seems too tricky and complex to be useful.
+And I was also sceptic, when I first saw it in Sublime Text editor: "What good
+can you expect from the guys that invented minimap?".
+
+But one day I watched a video by Magnar Sveen, where he showed-off his
+implementation of multiple cursors in Emacs. I got the impression that he,
+himself, didn't really know how to use them properly, but somehow it had a ring
+to him.
+
+The idea from the video, that also rang to me was selecting a word and adding
+auxiliary cursors on other occurrences of the same word. I didn't know how
+useful it was when I saw it, but I decided to give it a try.
+
+At first, I wasn't really using it much, because I didn't have the habit. And,
+to be honest, the concept is indeed a bit alien if you've never used it. But
+eventually, I worked out a style of using multiple cursors, which goes for me.
+It turned out to be so convenient, that now I can't imagine myself giving it up.
+
+The 2 most common bindings are =C->= and =C-<=:
+
+- If the region is active (e.g. a word is selected), then =C->= searches for the
+  next occurrence of this region and creates an additional cursor when it finds
+  one. Similarly, =C-<= searches for a previous occurrence.
+- If no region is selected, then the cursor is added on the next (previous) line.
+- To "skip" an occurrence, provide a zero prefix argument, e.g. =C-0 C->=.
+- To delete the last added cursor, provide a negative argument, e.g. =C-- C->=.
+- To remove all "fake" cursors, use =C-g=.
+
+The next important binding is =M-@=:
+
+- If no region is selected, then it adds a new cursor in the current position.
+- If the selected region lies on a single line entirely, then it searches the
+  whole buffer for the occurrences of this region and adds cursors on every one
+  of them.
+- If the selected region spans multiple lines, then it adds a cursor on each
+  line.
+
+Now we're getting on speed. Once you already have multiple cursors, =M-#= adds
+successive numbers in the place of each cursor. E.g. if you have 3 cursors, then
+pressing =M-#= will print 0 in the position of the first cursor, 1 - in the
+position of the second cursor and 2 - in the position of the third cursor. If
+you provide a prefix argument, say, =C-3 M-#=, it will be used as a base
+number - 3, 4, 5.
+
+Consider, for example, that you want to write the following code:
+
+#+BEGIN_EXAMPLE
+  array[0] = 0;
+  array[1] = 2;
+  array[2] = 4;
+  array[3] = 6;
+  array[4] = 8;
+  array[5] = 10;
+#+END_EXAMPLE
+
+What you do is:
+
+- place the cursor in the beginning of the line and add 6 cursors =C-6 C->=
+- type =array[=
+- hit =M-#= to add the digits
+- type the closing =]= (if it's not already there)
+- then type " = (* 2 ", =M-#= and ")"
+
+What we have at this point is:
+
+#+BEGIN_EXAMPLE
+  array[0] = (* 2 0)
+  array[1] = (* 2 1)
+  array[2] = (* 2 2)
+  array[3] = (* 2 3)
+  array[4] = (* 2 4)
+  array[5] = (* 2 5)
+#+END_EXAMPLE
+
+Assuming that the cursors are at the end of each line, we press =C-x C-e= (which
+is bound to =eval-and-replace=), add semicolons and get what we want.
+
+Neat, huh? But wait, there's more. Do you need to initialize, say, some kind of
+"point" structure as well?
+
+#+BEGIN_EXAMPLE
+  point.x = vec[0];
+  point.y = vec[1];
+  point.z = vec[2];
+#+END_EXAMPLE
+
+Hang on to yer helmet!
+
+#+BEGIN_EXAMPLE
+  point.(char-to-string (+ ?x 0))
+  point.(char-to-string (+ ?x 1))
+  point.(char-to-string (+ ?x 2))
+#+END_EXAMPLE
+
+Confused? Don't be - if you evaluate the lisp forms you will get "x", "y" and
+"z" as the results. Only your imagination is the limit when using the =M-#=
+function.
+
+BTW, I have this scary form =(char-to-string (+ ?x ))= in the abbrev table, so
+all I have to do is to type =char= and hit =M-/=.
+
+Last, but not least - M-', which is an my experimental function. It aligns all
+of your cursors by adding the necessary number of spaces.
+
+For example, if you have a code, like
+
+#+BEGIN_EXAMPLE
+  object.width = 30;
+  object.height = 150;
+  object.temperature = 300;
+#+END_EXAMPLE
+
+You can select the word =object=, hit =M-@=, =M-f=, =M-f=, =C-g= and M-' to make it
+look like this:
+
+#+BEGIN_EXAMPLE
+  object.width       = 30;
+  object.height      = 150;
+  object.temperature = 300;
+#+END_EXAMPLE
+
+You can do the same thing with the help of =align-regexp=, but if you created
+the cursors anyway, then M-' is a handy tool.
+
+If you feel overwhelmed by all the vast functionality this mode provides - don't
+let it stop you from trying it out. Start with simple things, like =C->= and
+=C-<=. Soon you will find yourself pretty comfortable with it and then you will
+start using other functions - little by little.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "multiple-cursors-autoloads"
+    '(progn
+       (when (require 'multiple-cursors nil t)
+         (defun mc/mark-all-dispatch ()
+           "- add a fake cursor at current position
+
+  - call mc/edit-lines if multiple lines are marked
+
+  - call mc/mark-all-like-this if marked region is on a single line"
+           (interactive)
+           (cond
+            ((not (region-active-p))
+             (mc/create-fake-cursor-at-point)
+             (mc/maybe-multiple-cursors-mode))
+            ((> (- (line-number-at-pos (region-end))
+                   (line-number-at-pos (region-beginning))) 0)
+             (mc/edit-lines))
+            (t
+             (mc/mark-all-like-this))))
+
+         (defun mc/align ()
+           "Aligns all the cursor vertically."
+           (interactive)
+           (let ((max-column 0)
+                 (cursors-column '()))
+             (mc/for-each-cursor-ordered
+              (mc/save-excursion
+               (goto-char (overlay-start cursor))
+               (let ((cur (current-column)))
+                 (setq cursors-column (append cursors-column (list cur)))
+                 (setq max-column (if (< max-column cur) cur max-column)))))
+
+             (defun mc--align-insert-times ()
+               (interactive)
+               (dotimes (_ times)
+                 (insert " ")))
+             (mc/for-each-cursor-ordered
+              (let ((times (- max-column (car cursors-column))))
+                (mc/execute-command-for-fake-cursor 'mc--align-insert-times cursor))
+              (setq cursors-column (cdr cursors-column)))))
+
+         (setq mc/list-file (concat (file-name-directory load-file-name) ".mc-lists.el"))
+         (load mc/list-file t) ;; load, but no errors if it does not exist yet please
+
+         (global-set-key (kbd "C->")  'mc/mark-next-like-this)
+         (global-set-key (kbd "C-<")  'mc/mark-previous-like-this)
+
+         (global-set-key (kbd "M-@") 'mc/mark-all-dispatch)
+         (global-set-key (kbd "M-#") 'mc/insert-numbers)
+         (global-set-key (kbd "M-'") 'mc/align))))
+#+END_SRC
+
+* Sudo edit
+
+Sometimes you need root rights to edit a file, e.g. some config in the "/etc"
+directory. Most of the time, you will open it in Emacs as usual to find out that
+you cannot edit it and you actually need to be root.
+
+In that case, simply use =C-x != to re-open the file using "sudo"
+protocol. Noteworthy, it works for remote files opened via TRAMP ssh protocol as
+well.
+
+#+BEGIN_SRC emacs-lisp
+  (defun add-sudo-to-filename (filename)
+    "Adds sudo proxy to filename for use with TRAMP.
+
+  Works for both local and remote hosts (>=23.4). The syntax used
+  for remote hosts follows the pattern
+  '/ssh:you@remotehost|sudo:remotehost:/path/to/file'. Some people
+  say, that you may need to call smth like
+  `(set-default 'tramp-default-proxies-alist (quote ((\".*\"
+  \"\\`root\\'\" \"/ssh:%u@%h:\"))))', but it works for me just fine
+  without it. "
+    (with-temp-buffer
+      (insert filename)
+      (goto-char (point-max))
+      (if (re-search-backward "@\\(.*\\):" nil t)
+          (let ((remote-name (buffer-substring (match-beginning 1) (match-end 1))))
+            (goto-char (match-end 1))
+            (insert (concat "|sudo:" remote-name))
+            (goto-char (point-min))
+            (forward-char)
+            (when (looking-at "scp")
+              (delete-char 3)
+              (when (looking-at "c")
+                (delete-char 1))
+              (insert "ssh"))
+            (buffer-string))
+        (concat "/sudo::" filename))))
+
+  (define-key global-map (kbd "\C-x!")
+    (defun sudo-edit-current-file (&optional arg)
+      "Edit currently visited file as root.
+
+  With a prefix ARG prompt for a file to visit.
+  Will also prompt for a file to visit if current
+  buffer is not visiting a file."
+      (interactive "P")
+      (if (or arg (not buffer-file-name))
+          (find-file (concat "/sudo:root@localhost:"
+                             (ido-read-file-name "Find file(as root): ")))
+        (let ((position (point)))
+          (find-alternate-file (add-sudo-to-filename buffer-file-name))
+          (goto-char position)))))
+#+END_SRC
+* Terminal emulator and SSH
+
+I don't need an actual terminal emulator often, because I can issue shell
+commands with =M-&= and =C-c C-c=. But sometimes I do need a terminal. And when
+I need one, I need a "real" PTY emulator, not =shell= or =eshell=.
+
+The built-in =M-x ansi-term= is a more or less decent emulator in that regard.
+It has rough edges and maybe it's not the best emulator ever, but, hey, it's
+good enough to run Vim and other obscure terminal software. You can definitely
+live with it.
+
+First, let's bind =C-x C-l= to trigger =line-mode=, where you can navigate the
+buffer without sending commands to the terminal, and bind =C-x C-k= to trigger
+=char-mode=, where all the input commands are sent to terminal.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'term)
+
+  (define-key term-mode-map "\C-x\C-j"   'dired-jump-universal-other)
+  (define-key term-raw-escape-map "\C-j" 'dired-jump-universal-other)
+  (define-key term-raw-escape-map "\C-l" 'term-line-mode)
+  (define-key term-mode-map "\C-x\C-k"   'term-char-mode)
+#+END_SRC
+
+For persistence, let's go to the end of the buffer and trigger the =char-mode=
+when switching to the terminal buffer.
+
+#+BEGIN_SRC emacs-lisp
+  (defadvice ido-switch-buffer (after maintain-ansi-term activate)
+    "Go to prompt when switched to ansi-term"
+    (when (member major-mode '(term-mode))
+      (term-line-mode)
+      (goto-char (point-max))
+      (end-of-line)
+      (term-char-mode)))
+#+END_SRC
+
+The default term colors are unreadable for some reason, so I spent quite some
+time to find decent alternatives.
+
+#+BEGIN_SRC emacs-lisp
+  (set-face-attribute 'term-color-black nil   :background "#1d1f21" :foreground "#1d1f21")
+  (set-face-attribute 'term-color-blue nil    :background "#81a2be" :foreground "#81a2be")
+  (set-face-attribute 'term-color-green nil   :background "firebrick" :foreground "firebrick")
+  (set-face-attribute 'term-color-magenta nil :background "#b294bb" :foreground "#b294bb")
+  (set-face-attribute 'term-color-red nil     :background "#cc6666" :foreground "#cc6666")
+  (set-face-attribute 'term-color-white nil   :background "#c5c8c6" :foreground "#c5c8c6")
+  (set-face-attribute 'term-color-yellow nil  :background "#f0c674" :foreground "#f0c674")
+#+END_SRC
+
+All of the above were some minor tweaks to the existing =ansi-term=
+functionality. What comes next could also be considered a minor tweak if you
+think of the lines-of-code count. But it is a really powerful feature I use with
+great pleasure.
+
+A simple question - how do you work on a remote workstation via ssh?
+
+The most popular answer I hear is to open a terminal and work from there.
+Probably, this fact is one of the good reasons for people to use Vim. It's an
+overkill to install Emacs and your configuration on every remote you work with.
+Especially, if you want to do something simple. On the contrary, Vim is
+pre-installed on pretty much any platform and since conscientious Vim users
+don't need a lot of configuration, it's a workable solution for them.
+
+Obviously, Emacs has it's own solution, but, surprisingly, it doesn't lie on a
+surface - you have to figure it out yourself. Let me try to explain to you how
+conscientious Emacs users work on remote machines.
+
+First thing, you may already know, is that you can provide a configuration file
+to =ssh= - normally, it's =~/.ssh/config=. In this file you can have records,
+like:
+
+#+BEGIN_EXAMPLE
+  Host server1
+       User snosov1
+       HostName 192.168.0.14
+
+  Host distant-ws
+       User sergei
+       Port 324
+       HostName 83.123.44.2
+#+END_EXAMPLE
+
+With those records you can use a shorthand command, like =ssh distant-ws= to
+connect to the server without specifying username, host and port. Pretty neat.
+
+But there's more. When you start Emacs, my little function
+=term-parse-ssh-config= will parse this config file and save a list of the
+hosts. Then, you can issue =M-x remote-term= command and it will ask you for a
+hostname (with enabled completion) and open an ssh session in the =ansi-term=
+window. Not bad, huh?
+
+#+BEGIN_SRC emacs-lisp
+  (defcustom term-remote-hosts '()
+    "List of remote hosts"
+    :group 'term)
+
+  (defcustom ssh-config-filename "~/.ssh/config"
+    "ssh config filename"
+    :group 'term)
+
+  (funcall
+   (defun term-parse-ssh-config ()
+     "Parse `ssh-config-filename' to provide `remote-term'
+    completion capabilities."
+     (interactive)
+     (setq term-remote-hosts '())
+     (if (file-exists-p ssh-config-filename)
+         (with-temp-buffer
+           (find-file ssh-config-filename)
+           (goto-char (point-min))
+           (while (re-search-forward "Host\\s-+\\([^\s]+\\)$" nil t)
+             (let ((host (match-string-no-properties 1)))
+               (add-to-list 'term-remote-hosts `(,host "ssh" ,host))))
+           (kill-buffer)))))
+
+  (defun remote-term-do (new-buffer-name cmd &rest switches)
+    "Fires a remote terminal"
+    (let* ((term-ansi-buffer-name (concat "*" new-buffer-name "*"))
+           (term-ansi-buffer-name (generate-new-buffer-name term-ansi-buffer-name))
+           (term-ansi-buffer-name (apply 'term-ansi-make-term term-ansi-buffer-name cmd nil switches)))
+      (set-buffer term-ansi-buffer-name)
+      (term-mode)
+      (term-char-mode)
+      (term-set-escape-char ?\C-x)
+      (switch-to-buffer term-ansi-buffer-name)))
+
+  (defun remote-term (hostname)
+    (interactive
+     (list (completing-read "Remote host: " term-remote-hosts)))
+    (dolist (known-host term-remote-hosts)
+      (when (equal (car known-host) hostname)
+        (apply 'remote-term-do known-host))))
+#+END_SRC
+
+But wait, there's even more.
+
+- =M-x remote-authorize= will add your public key to the authorized keys list on
+  the remote and it won't ask you for authentication anymore. In order to work,
+  this function assumes that you already have generated a key pair via
+  #+BEGIN_EXAMPLE
+    ssh-keygen -t rsa -C "your_email@example.com"
+  #+END_EXAMPLE
+- =M-x remote-enable-dired= will modify the ".profile" file on the remote, so
+  that when you'll press =C-x C-j= for a =dired-jump= in the remote terminal
+  (opened with =M-x remote-term=), it will open dired for the remote directory!
+
+Those functions enable you to work with the remote exactly as you would work
+with a local workstation. No need to resort to terminal, no need to install
+Emacs and your configuration on the remote. You will simply use your local Emacs
+instance.
+
+Needless to say, stuff, like, copying files from remote dired buffer to local
+dired buffer, will work transparently - no need for =scp= or anything.
+
+And all of this is enabled with just 3 simple steps:
+
+- add a record to =~/.ssh/config= and re-open Emacs or call =M-x
+  term-parse-ssh-config=
+- call =M-x remote-authorize=
+- call =M-x remote-enable-dired=
+
+It is a tremendously convenient and useful functionality. There are few caveats, though:
+
+- You should name the hosts in your ssh config file with the same names that are
+  specified in the =/etc/hostname= on the remotes.
+- =remote-authorize= and =remote-enable-dired= are very thin wrappers for
+  respective shell commands, which, in turn, are very simplistic. They work for
+  Ubuntu workstations and remotes, and they should, probably, work on other
+  Linux flavors. But you might need to tailor them to your needs.
+
+#+BEGIN_SRC emacs-lisp
+  (defcustom ssh-public-key-filename "~/.ssh/id_rsa.pub"
+    "ssh public key filename"
+    :group 'term)
+
+  (defun remote-authorize (hostname)
+    (interactive
+     (list (completing-read "Remote host: " term-remote-hosts)))
+    (async-shell-command
+     (concat "cat " ssh-public-key-filename
+             " | ssh " hostname
+             " 'mkdir -p .ssh && cat - >>.ssh/authorized_keys'")))
+
+  (defun remote-enable-dired (hostname)
+    (interactive
+     (list (completing-read "Remote host: " term-remote-hosts)))
+    (let ((filename (concat temporary-file-directory ".profile")))
+      (with-temp-file filename
+        (insert "######################################################################\n# Put this in your remote system's .profile for remote bash to track\n# your current dir\nset_eterm_dir () {\n    echo -e \"\\033AnSiTu\" \"$LOGNAME\" # $LOGNAME is more portable than using whoami.\n    echo -e \"\\033AnSiTc\" \"$(pwd)\"\n    if [ $(uname) = \"SunOS\" ]; then\n\t    # The -f option does something else on SunOS and is not needed anyway.\n       \thostname_options=\"\";\n    else\n        hostname_options=\"-f\";\n    fi\n    echo -e \"\\033AnSiTh\" \"$(hostname $hostname_options)\" # Using the -f option can cause problems on some OSes.\n    history -a # Write history to disk.\n}\n\n# Track directory, username, and cwd for remote logons.\nif [ \"$TERM\" = \"eterm-color\" ]; then\n    PROMPT_COMMAND=set_eterm_dir\nfi\n######################################################################\n"))
+      (async-shell-command
+       (concat "cat " filename " | ssh " hostname " 'touch .profile && cp .profile .profile.sergei.bak && cat - .profile >.profile.sergei.emacs.dired && cp .profile.sergei.emacs.dired .profile'"))))
+#+END_SRC
+
+* Grepping
+
+I use simple grep commands to search through files:
+
+- find+grep (=C-F=) to search in the current directory
+- git-grep (=C-u C-F=) to search in the whole repository.
+
+There are "modern" alternatives to these tools, like, =ack= and =ag=. But I
+can't really appreciate the benefits they bring over the "stock"
+programs. Simplicity and "always there" aspects are much more valuable to me in
+that case.
+
+If I want to limit the search, most of the time =git-grep= will be a decent
+option. If I want to limit it even further, then I provide something like "-name
+'*.c'" to =find=.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'vc-git)
+  (require 'grep)
+
+  (grep-apply-setting 'grep-find-command
+                      (quote ("find . -type f -exec grep -nHi -e  {} +" . 35)))
+
+  (defcustom git-grep-switches "--extended-regexp -I -n --ignore-case "
+    "Switches to pass to 'git grep'."
+    :type 'string
+    :group 'grep)
+
+  (defun git-grep (re)
+    (interactive
+     (list (let ((gg-init-value
+                  ;; if region is active - use its value as an init
+                  (if (region-active-p)
+                      (buffer-substring-no-properties (region-beginning) (region-end))
+                    nil)))
+             (read-from-minibuffer "git grep: " gg-init-value nil nil 'grep-history))))
+    (let ((grep-use-null-device nil))
+      (grep (format "git --no-pager grep %s -e '%s' -- %s"
+                    git-grep-switches
+                    re
+                    (expand-file-name (vc-git-root default-directory))))))
+
+  (define-key global-map [(control shift f)]
+    (defun grep-dispatch (arg)
+      "With prefix calls `git-grep' and `find-grep' otherwise"
+      (interactive "P")
+      (if arg
+          (call-interactively 'git-grep)
+        (call-interactively 'find-grep))))
+#+END_SRC
+
+Grep buffer with clickable links is definitely a great feature. What makes it
+super great is the ability to press =C-x C-q= and edit the contents of the
+buffer, provided by =wgrep= package.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "wgrep-autoloads"
+    '(progn
+       (when (require 'wgrep nil t)
+         (setq wgrep-enable-key "\C-x\C-q")
+         (add-hook 'grep-mode-hook
+                   '(lambda ()
+                      (define-key grep-mode-map "\C-c\C-c"
+                        'wgrep-save-all-buffers))))))
+#+END_SRC
+
+* Hide/show blocks
+
+There are some situations when you want to have a glance at functions defined in
+a file. For elisp, you can use something, like =M-x occur= and search for
+=defun=. Languages, like Python could also be approached in a similar
+fashion. But it's not that easy to do so for the C-family languages. That's
+where =hideshow= module can help.
+
+=hs-hide-level= works like this - if you're at the top level of a C file,
+then it will leave only function definitions. If you're inside a function, it
+will collapse every inner block /in that function/. If you're inside a block,
+that's inside a function, it will collapse every inner block /in that block/ and
+so on.
+
+After you've found a block to work on - you can use =hs-toggle-hiding= to make
+it visible and hide it again after you're done.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'hideshow nil t)
+
+  (defun hs-enable ()
+    (hs-minor-mode t)
+    (define-key hs-minor-mode-map "\C-chh" 'hs-toggle-hiding)
+    (define-key hs-minor-mode-map "\C-chl" 'hs-hide-level)
+    (define-key hs-minor-mode-map "\C-cha" 'hs-show-all))
+
+  (add-hook 'c-mode-common-hook 'hs-enable)
+  (add-hook 'python-mode-hook 'hs-enable)
+  (add-hook 'python-ts-mode-hook 'hs-enable)
+#+END_SRC
+
+* Auto-completion
+** Overview
+
+I was postponing the writing of Auto-completion section for a long time. The
+reason is - I'm still uncertain about my attitude to it.
+
+When I first started using Emacs, obviously, auto-completion was one of the main
+features I wanted to be there, since I was working in (shrug) Microsoft Visual
+Studio and considered it a given. I was under impression that no good work can
+be done without it.
+
+To be clear - I'm talking about "smart" or "intellisense" kind of
+auto-completion. I.e. if I write =reader.=, then an editor should provide a
+precise list of public members and methods of the =reader= object.
+
+So, I spent something like 2 weeks to make it work. If I recall correctly, it
+was some clang-based solution for C++. It worked decently well, but occasional
+one second glitches were annoying, so I turned off the automatic start of
+auto-completion in favor of explicit binding. This way I could trigger the
+completion only when I needed it.
+
+But guess what? I've found myself almost never using it in about a month. And
+when I tried to use it - there always were some rough edges. It didn't work
+accurately, it refused to work sometimes, it needed some variables to be
+set... it was Always Something. So, I turned it off and guess again? I've never
+felt the need for it during my work. Not once.
+
+Then, eventually, I began advocating Emacs to others. Unsurprisingly, a first
+question from almost everybody was about auto-completion. And believe it or not,
+the answer "Hey, you know what? You don't actually need auto-completion!" wasn't
+really convincing.  Almost everybody just stopped listening after that. For good
+reasons or bad, they just stopped listening, because I was denying something
+they work with all the time.
+
+And I cannot blame them. I had the exact same first expectations, it took some
+time to figure out the redundancy of auto-completion.
+
+So, I decided to enable auto-completion once again and to try to employ it into
+my work. I spent some time again, made it work decently, but I didn't really
+notice the gain. Yeah, it was nice and all, but it literally didn't make any
+difference.
+
+At the same time to make it work, most of the time you have to install external
+tools, add quite a lot of configuration and you have to maintain everything. All
+of this seemed too much for something that doesn't really change anything, so I
+removed it. Again.
+
+Since then I keep changing my mind about auto-completion back and forth. For
+some time I'm convinced that it's absolutely useless. Then I start thinking that
+maybe the idea is not that bad and maybe the tools have improved. So, I try
+things out from scratch, but every time the solution is half-backed. It works
+immediately after I configure everything, but when I switch workstations, try
+something like remote access via TRAMP, encounter some unusual build system or
+source tree - it stops working and needs to be tweaked again.
+
+The endless tweaking for occasional 10 second gains just doesn't feel right for
+me. So I came up with this "theory" about auto-completion, that "formally"
+"proves" its complete uselessness! I will share it and you can decide whether it
+is convincing enough.
+
+** Hippie expand
+
+Obviously, you need auto-completion when you need to type a long word or a piece
+of text - you don't need it for short sequences. And there are only 2
+fundamentally different cases:
+
+- You KNOW the text you want to write - you just don't want to type every
+  character. E.g. you want to call a function named "doEverythingRight"; you
+  remember its name (or at least the beginning); and you want to start typing
+  it - enter a few characters (like, "doEv") and then hit a button to complete
+  the whole thing.
+- You DON'T KNOW the text you want to write - you want to choose between
+  candidates. E.g. you entered =reader.= and you expect the reader object to
+  have a method that skips some characters while reading. You don't know its
+  name - it might be "skip", "seek", "jump" or something else. But you want to
+  see the list of all public methods of the =reader= and maybe find something
+  there.
+
+The first case is rather simple. You don't actually need any sophisticated and
+precise auto-completion for that. A simple heuristic, like - trying to complete
+using words in all opened buffers will suffice.
+
+For the case of "doEverythingRight" function it means, that if you have already
+used this function in some opened buffer - it will be auto-completed by
+=hippie-expand= (=M-/=).
+
+I guess it's called "hippie", because of its naive, but vast nature - "try every
+word in every opened buffer" - that sounds hippie to me. But despite of the
+hippie nature - it works reasonably good. And if it didn't guess right for the
+first time, you can choose other candidates by repeating the command.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'hippie-exp)
+
+  (setq-default hippie-expand-try-functions-list
+                (quote
+                 (try-complete-file-name-partially
+                  try-complete-file-name
+                  try-expand-all-abbrevs
+                  try-expand-dabbrev
+                  try-expand-dabbrev-all-buffers
+                  try-expand-dabbrev-from-kill)))
+
+  (add-to-list 'hippie-expand-ignore-buffers 'image-mode)
+
+  (global-set-key (kbd "M-/") 'hippie-expand)
+#+END_SRC
+
+The second case is completely different, and I argue that auto-completion is not
+the right tool to solve the problem. What you actually need in that case is
+documentation, not completion. The cases when you can guess the function name
+correctly without the need of any documentation are pretty rare.
+
+So, a more straightforward approach would be to open the documentation of the
+reader object and consult it:
+
+- For example, Googling for =c++ ifstream= (via =C-c g=) will give you the
+  results faster - the very first link has a nice overview of the =ifstream=
+  methods.
+- In case if you work on some proprietary code base, when Google can't help
+  you - you can still search through the local documentation if you have it, or
+  jump to definition via =find-tag= (=M-.=) and look through the members and/or
+  comments. =C-c h= will help you to hide the unnecessary details.
+
+And that's, basically, it. Both use cases can be dealt with using alternative
+and, arguably, superior approaches. In conclusion, I want to mention the
+argument which I hear quite often, and which I find pretty weak.
+
+One might argue that the main reason to use auto-completion is to increase
+typing speed. But you really start asking questions after that statement. Like,
+what is your current typing speed? If you're touch typing then it won't take
+long for your speed to exceed 50 words per minute, which is 250 characters per
+minute, which is ~4 characters per second. Typing "doEverythingRight" on that
+speed takes you 4 seconds. Typing "seek" takes you under 1 second. Do you want
+to improve it even further? What is the reason for that? Do you think it's a
+bottleneck in your work? Are you sure? Do you honestly believe that using arrows
+to choose the correct candidate is actually increasing your speed?
+
+In case, if you're not touch typing, but rather hunt-and-pecking with 2 fingers
+on 5 words per minute, then excuse me, but auto-completion won't help your
+productivity. Well, it will, to some minor extent, but learning to touch type
+will improve it by 2 orders of magnitude compared to auto-completion.
+
+So, auto-completion is the wrong tool again. You have to learn to touch type
+instead of using auto-completion to increase your speed (and accuracy). It's not
+as hard as many people think. You can teach a monkey to touch type in something
+like 40 hours with the keyboard. Is it really too much?
+
+** Snippets
+
+First case from the previous section, when you know the text you want to write,
+but don't want to type every character, has an important sub-case. What if the
+text is quite long or crypto-looking? You definitely don't want to remember
+those kind of things and =hippie-expand= won't help you, since it completes only
+words.
+
+There are multiple options to approach this problem in Emacs. Unfortunately, I
+couldn't find a single one, that fits me entirely, but I'm kind of pleased with
+a combo of =abbrev= and =yasnippet= packages.
+
+*** Yasnippet
+
+Yasnippet is a great package for snippets of any kind - long or short, simple or
+complex. It provides great possibilities to make the snippets really smart.
+
+The only thing is that I don't like when the tools try to be smarter than me -
+it hurts my self-esteem. So all my snippets are mostly dumb with almost no
+interactivity. The good thing is that yasnippet doesn't stand in my way. It
+doesn't require me to use fancy snippets, rather it provides an option to do so.
+
+And, honestly, there's not much more to tell about it. Yasnippet is really great
+at its job. It had rough edges and big starting times previously, but now I find
+it to be in quite good shape.
+
+The advice I can give you about using it - like configuring Emacs, it's better
+to start with zero snippets and add ones as you go. You can look through other
+people's snippets for good ideas, but there's little use in a pack with a
+thousand of snippets. You won't find the time to study those snippets and they
+may not suit your way of writing code.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "yasnippet-autoloads"
+    '(progn
+       (if (require 'yasnippet nil t)
+           (progn
+             (let ((yas-dir (concat (file-name-directory load-file-name) ".yasnippets")))
+               (when (file-exists-p yas-dir)
+                 (setq yas-snippet-dirs (list yas-dir))))
+             (setq-default yas-prompt-functions (quote
+                                                 (yas-dropdown-prompt
+                                                  yas-ido-prompt
+                                                  yas-completing-prompt
+                                                  yas-x-prompt
+                                                  yas-no-prompt)))
+             (yas-global-mode 1)
+
+             (add-hook 'term-mode-hook
+                       '(lambda ()
+                          (yas-minor-mode -1))))
+         (message "WARNING: yasnippet not found"))))
+#+END_SRC
+
+*** Abbreviations
+
+One particular place where =yasnippet= doesn't really work well is minibuffer. I
+don't know if it's just me, or it isn't supposed to work there. But anyway, I
+use minibuffer to issue shell commands (with =M-&=) quite often, and =abbrev=
+package comes to the rescue.
+
+There are commands that I use rarely enough to forget their actual spelling, but
+often enough to be annoyed every time I have to look them up somewhere. As a
+simplest example, I always forget how to use =ln= command to create a symbolic
+link. Where do you have to put =-s=? Where is the target path and where is the
+link name? I know, it's ridiculous, but I was making mistakes every time I used
+it.
+
+Now, I simply print =ln=, hit =M-/= for =hippie-expand=, it becomes =ln -s
+target link= and I'm happy.
+
+The abbreviations are listed in =.abbrev_defs= file and, basically, all of them
+are commands, that do something simple, but are represented by a random-looking
+sequence of characters. My rule of thumb is to use abbreviations for common
+shell commands and =yasnippet= for everything else.
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'abbrev nil t)
+    (add-hook 'find-file-hook
+              '(lambda()
+                 (abbrev-mode -1)))
+    (setq abbrev-file-name (concat (file-name-directory load-file-name) ".abbrev_defs"))
+    (setq-default abbrev-mode nil)
+    (add-to-list 'auto-mode-alist '("\\.abbrev_defs\\'" . emacs-lisp-mode)))
+#+END_SRC
+* Org
+** Customization
+
+You should require the corresponding =ob-= module to be able to execute source
+blocks for some language. E.g. after requiring =ob-python= you can hit =C-c C-c=
+on the heading of Python source block, and it will be executed. If you =return=
+something from this block - the results will be placed right after the block.
+
+#+BEGIN_SRC emacs-lisp
+  (require 'org)
+  (require 'ob-python)
+#+END_SRC
+
+Default look of the Org files can be improved by leaving single stars for
+headings and indenting the text according to the heading level.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default org-confirm-babel-evaluate nil)
+  (setq-default org-hide-leading-stars t)
+  (setq-default org-modules (quote (org-bbdb org-bibtex org-docview org-gnus org-info org-jsinfo org-habit org-irc org-mew org-mhe org-rmail org-vm org-wl org-w3m)))
+  (setq-default org-src-fontify-natively t)
+  (setq-default org-startup-indented t)
+  (setq-default org-support-shift-select (quote always))
+#+END_SRC
+
+When I use "C-c '" to edit source blocks, my finger muscles keep using the
+familiar key bindings. So, it's better for those to do what I mean.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key org-src-mode-map (kbd "C-x C-s") 'org-edit-src-save)
+  (define-key org-src-mode-map (kbd "C-x k")   'org-edit-src-exit)
+#+END_SRC
+
+If the cursor is under the number of a numbered list (not necessarily in an org
+file), then you can use =C-+= or =M-+= to fix the numbering if it is broken.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-+")         'org-list-repair)
+  (global-set-key (kbd "M-+")         'org-list-repair)
+
+  ;; don't redefine some bindings
+  (define-key org-mode-map [C-tab] nil)
+  (define-key org-mode-map (kbd "M-h") nil)
+  ;; swap active/inactive time-stamp bindings
+  (define-key org-mode-map (kbd "C-c .") 'org-time-stamp-inactive)
+  (define-key org-mode-map (kbd "C-c !") 'org-time-stamp)
+#+END_SRC
+
+Org has a neat functionality to render LaTeX formulas not only on export, but in
+the source itself. The function for this is =org-preview-latex-fragment= (=C-c
+C-x C-l=). Two available backends for rendering are =dvipng= and =imagemagick=,
+with the latter being my backend of choice.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default org-latex-create-formula-image-program 'imagemagick)
+#+END_SRC
+
+I'm not really a great user of different tools for planning and organizing. It's
+really a shame, because if you think about it, those are absolutely necessary to
+actually get things done. And I'm not losing hope that someday I will make my
+life and work more organized.
+
+One step towards this goal for me is to make the tools as simple and unobtrusive
+as possible. Maintaining a list of highly structured org-files every day will
+never work for me.
+
+Instead, when I face a lot of problems I cannot keep in my head at once, I put
+everything into a single .org file and maintain it until the fire is
+extinguished. The following function to create an agenda of the current buffer
+comes in pretty handy.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key org-mode-map (kbd "C-c a")
+    (defun org-agenda-current-buffer ()
+      (interactive)
+      (let ((org-agenda-files (list (buffer-file-name))))
+        (org-agenda-list))))
+#+END_SRC
+
+** Permanent table of contents
+
+Org has a built-in way to generate a table of contents when exporting. However,
+sometimes you need a table of contents in the org file itself. For example, when
+you use it as readme in a GitHub repository.
+
+I wrote a simple package serving this need.
+
+In 2 words, you simply add a =:TOC:= tag to a heading and it will be updated
+with the current table of contents before each save.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "toc-org-autoloads"
+    '(progn
+       (if (require 'toc-org nil t)
+           (add-hook 'org-mode-hook 'toc-org-mode)
+         (message "WARNING: toc-org not found"))))
+#+END_SRC
+
+** Pomodoro
+
+It's one of the most important sections in the whole configuration, that I've
+hidden in this inconspicuous place where nobody will look. In this section I
+will tell you the secret of all secrets and answer the question of all
+questions.
+
+Nowadays, there's a lot of talk about motivation and productivity. The demand is
+pretty high. The increasing number of people notice that for some reason they
+don't do the things they consciously know they should be doing. They postpone
+the important things and do whatever stupid shit, like, reading "news" or
+watching funny videos on the Internet instead.
+
+And the most staggering (not to say frightening) part is that most of them know
+about it. THEY KNOW THEY'RE DOING STUPID SHIT AND CONTINUE DOING IT!
+
+In the moments of realization they even feel bad about it. They want to change
+something in their lives. And what do they try? Do they try to stop doing stupid
+shit and start doing what they're ought to? Nope. When they feel like they have
+to change something about their lives, they start looking for "solutions" to
+their "problem".
+
+Unsurprisingly, a lot of people propose their solutions. They invent
+"techniques" and "methodologies" for time management and self control. They
+write books on it, host expensive workshops and whatnot.
+
+Personally, I've read and tried a good share of them and I can safely say: "None
+of the time management techniques worth a broken penny if you're not doing the
+things on the list." The hardest part of every method is to actually (surprise!)
+do the things you have to do, not to organize them in a fancy fashion.
+
+You can feel inspired when you discover a new method to streamline your
+life. But this feeling doesn't last long. Once you get to know the method and
+start actually using it, count to three - and find yourself doing stupid shit
+again.
+
+Of course, planning and tracking progress is absolutely essential to get things
+done and improve yourself. So, I'm not saying that time management is useless or
+bad, quite the contrary. But you should know full surely - 99.9% of the success
+will depend on whether you will actually do the things you need to do. The
+impact of the particular time management method is diminishingly small.
+
+So, my advice to you - from all the methods you think will work for you - pick
+the simplest one. If you don't know any - pick pomodoro.
+
+Apparently, some Italian guy made it popular. He took a piece of paper and wrote
+down a todo list. Then he took a pomodoro-shaped kitchen timer and set it to 25
+minutes. He worked for 25 minutes straight on the first item and then rested for
+5 minutes (using the same timer). After that, he set it to 25 minutes again and
+worked on the second item following with a 5 minutes break. After 4 pomodoros (2
+hours) he took a longer (20 minutes) break.
+
+Don't know how many pomodoros later, he became rich by selling funny-looking
+kitchen timers to people and describing this procedure. Some well-managed time,
+eh?
+
+Luckily, you don't need any expensive pomodoro-shaped equipment for this method
+if you're using Emacs. In the beginning of the day you just create a heading in
+a dedicated org file, like:
+
+#+BEGIN_SRC org
+  ,* [2016-01-20 Wed]
+  ,** Emacs configuration
+  ,*** TODO Write an entry about org-pomodoro
+  ,*** TODO Diminish org clock in modeline
+  ,** Organizational
+  ,*** TODO Write weekly report
+#+END_SRC
+
+After that, you hit =<f12>= when the cursor is on the item you plan to do
+now. It will start the timer and notify you when 25 minutes end. You're supposed
+to stay focused on the task for the whole pomodoro and simply put new things on
+the list if they arise instead of switching to them. After the pomodoro ends, a
+short-break timer will start. If you're done with a task - you should mark it as
+DONE. You should start another pomodoro after the short break ends. You can
+continue with the same task if it's not finished, or switch to another
+task. After 4 pomodoros, take a longer break (20 minutes).
+
+I can pretend that there's more to this technique than it sounds, like:
+- you should try to make each task on the list to be doable during a single
+  pomodoro
+- you can choose different timer periods to suit your personality
+- the tasks break-down and 25 minute size of pomodoros save you from being
+  overwhelmed
+- checking finished items with DONE instead of deleting them helps your
+  motivation
+- you can track how many time you have spent on each task
+- you can hit =<f12>= in any buffer for a list of recent tasks, so you don't
+  spend time jumping around the todo file
+- etc.
+
+But all of this is just the icing on the cake. The pomodoro technique is so
+simple, that it really shouldn't even have a name. And its simplicity is its
+main beauty. Due to its simplicity, pomodoro is completely honest with you. Like
+a mirror - it will show you just who you are, precisely. Without judging and
+without mercy. If it doesn't help your procrastination - it cannot be because of
+the technique. It's just too dead simple to be capable of messing things up. So,
+if you can't make it work, it means, that you're weak and you deserve to
+fail. Now you know it and you have no excuse.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "org-pomodoro-autoloads"
+    '(progn
+       (if (require 'org-pomodoro nil t)
+           (progn
+             (setq-default org-pomodoro-play-sounds nil)
+             (setq-default org-pomodoro-format "%s")
+             (setq-default org-pomodoro-short-break-format "Break~%s")
+             (setq-default org-pomodoro-keep-killed-pomodoro-time t)
+             (setq-default org-clock-clocked-in-display nil)
+             (defalias 'org-pomodoro-notify
+               (defun notify-title-body (title body)
+                 (notifications-notify :title title :body body)))
+             (global-set-key (kbd "<f12>") 'org-pomodoro))
+         (message "WARNING: org-pomodoro not found"))))
+#+END_SRC
+
+* Expand region
+
+=expand-region= increases the selected region by semantic units. For example,
+you have the following code - =(setq alphabet-start "abc def")=.
+
+With the cursor before the =c= letter, pressing =C-== marks the entire word
+=abc=, successive pressing expands to the contents of the quotes =abc def=, then
+it marks the quotes, and so on:
+
+#+BEGIN_EXAMPLE
+  "abc def"
+  setq alphabet-start "abc def"
+  (setq alphabet-start "abc def")
+#+END_EXAMPLE
+
+It's a very nice package that I use quite a lot with great pleasure. But I think
+the author was a little bit carried away with the implementation.
+
+My guess is that editing of "lispy" (i.e. Lots of Irritating Stupid Parenthesis)
+code was the primary motivation for the package. And it works almost flawlessly
+in that use case. But, apparently, the author thought, that applying it to a
+wider set of languages may be a good idea. Like, if Emacs understands the syntax
+of the language - we can try expanding.
+
+For example, if we have a statement, like =object.getHash();= and the cursor is
+at the beginning of it, then we can expand to something, like,
+
+- =object=
+- =object.=
+- =object.getHash=
+- =object.getHash()=
+- =object.getHash();=
+
+It does sound neat, right? But in practice - it's not all roses.
+
+There are at least 2 issues spoiling the party. First, the syntax of Lisp-like
+languages is very simple. Basically, you're editing an Abstract Syntax Tree
+(AST) directly, using parenthesis to denote node boundaries and nesting. But the
+syntax of C-like languages (especially, C++) is significantly more complex. So,
+it makes writing precise "expansion rules" unreasonable. =expand-region= relies
+on the built-in Emacs parsers most of the time. And those parsers are forced to
+resort to imprecise heuristics. This leads to very awkward expansions
+sometimes. Not always, but often enough to feel uncomfortable.
+
+In my experience, dots (sentences) and empty lines (paragraphs) were causing
+most of the confusion. So, I dropped the rules, relying on those symbols to make
+=expand-region= dumber, but more predictable.
+
+The second reason why it doesn't work very well beyond lisp family is
+fundamental to the design of this feature. Here's how expanding logic works. We
+try to mark some bigger region that contains the currently selected one (or
+simply contains the point if no region is selected yet). For this, we use
+different rules, like "mark everything inside quotes", "mark everything inside
+quotes, including the quotes", "mark everything inside parenthesis", "mark a
+statement" and etc. We choose the "best" rule for the currently marked region
+and use it as a next expansion. The "best" rule must contain the original
+region, and expand it "as little as possible".
+
+Now, consider the =object.getHash();= example again. Assuming that =getHash= is
+already selected, try to define, which expansion is better - =object.getHash= or
+=getHash()=? If you choose the first one, then you lose a chance to ever get the
+second expansion, and if you choose the second one, you won't ever get the first
+one.
+
+Such situations are impossible in lisps, because nesting is strictly ordered
+there. But in other languages, a sensible expansion can expand to the left,
+while another sensible expansion will expand to the right. There's no way to
+have both within the design of =expand-region=.
+
+Currently, it will always choose the region, that expands as little as possible
+to the left. I tried different heuristics, but neither was significantly better,
+because of the fundamental fact - sometimes you need the "left" expansion, and
+sometimes you need the "right" one.
+
+I use =expand-region= everywhere for quite some time already. And now, when my
+habits regarding it are established, I find myself using it only in "lisp"-alike
+situations - marking words, strings (quotes) and parenthesis/braces/brackets.
+
+#+BEGIN_SRC emacs-lisp
+  (eval-after-load "expand-region-autoloads"
+    '(progn
+       (when (require 'expand-region nil t)
+         (defun er/mark-method-call ()
+           "Mark the current symbol (including dots and arrows) and then paren to closing paren."
+           (interactive)
+           (let ((symbol-regexp "\\(\\s_\\|\\sw\\|\\.\\|->\\)+"))
+             (when (or (looking-at symbol-regexp)
+                       (er/looking-back-on-line symbol-regexp))
+               (skip-syntax-backward "_w.")
+               (set-mark (point))
+               (when (looking-at symbol-regexp)
+                 (goto-char (match-end 0)))
+               (if (looking-at "(")
+                   (forward-list))
+               (exchange-point-and-mark))))
+
+         (defun er/mark-inside-pairs ()
+           (interactive)
+           (ignore-errors
+             (funcall (or (command-remapping 'backward-up-list) 'backward-up-list))
+             (set-mark (save-excursion
+                         (forward-char 1)
+                         (skip-chars-forward er--space-str)
+                         (point)))
+             (forward-sexp)
+             (backward-char)
+             (skip-chars-backward er--space-str)
+             (exchange-point-and-mark)))
+
+         (defun er/mark-outside-pairs ()
+           "Mark pairs (as defined by the mode), including the pair chars."
+           (interactive)
+           (if (er/looking-back-on-line "\\s)+\\=")
+               (ignore-errors (backward-list 1))
+             (skip-chars-forward er--space-str))
+           (when (or (not (er--looking-at-pair))
+                     (er--looking-at-marked-pair))
+             (funcall (or (command-remapping 'backward-up-list) 'backward-up-list)))
+           (when (er--looking-at-pair)
+             (set-mark (point))
+             (forward-sexp)
+             (exchange-point-and-mark)))
+
+         (setq er/try-expand-list
+               '(er/mark-word
+                 er/mark-symbol
+                 er/mark-inside-quotes
+                 er/mark-outside-quotes
+                 er/mark-inside-pairs
+                 er/mark-outside-pairs
+                 er/mark-method-call
+                 er/c-mark-statement
+                 er/mark-comment
+                 er/mark-url
+                 er/mark-email
+                 er/mark-defun))
+
+         (add-hook 'text-mode-hook
+                   '(lambda ()
+                      (setq-local er/try-expand-list (remove 'er/mark-text-sentence er/try-expand-list))
+                      (setq-local er/try-expand-list (remove 'er/mark-text-paragraph er/try-expand-list)))
+                   t)
+         (add-hook 'org-mode-hook
+                   '(lambda ()
+                      (setq-local er/try-expand-list (remove 'er/mark-sentence er/try-expand-list))
+                      (setq-local er/try-expand-list (remove 'er/mark-text-sentence er/try-expand-list)))
+                   t)
+
+         (defun er/add-cc-mode-expansions ()
+           "Adds expansions for buffers in c-mode."
+           (set (make-local-variable 'er/try-expand-list)
+                (append er/try-expand-list
+                        '(er/c-mark-fully-qualified-name
+                          er/c-mark-function-call-1   er/c-mark-function-call-2))))
+
+         (when (require 'd-mode nil t)
+           (er/enable-mode-expansions 'd-mode 'er/add-cc-mode-expansions))
+
+         (global-set-key (kbd "C-=") 'er/expand-region)
+         (setq expand-region-fast-keys-enabled nil))))
+#+END_SRC
+
+The following function puts quotes around the word at point. I added it to my
+config even before =expand-region= was implemented. In theory, =expand-region=
+should have made this function obsolete. But it never really happened for me. I
+got used to it so much, that my fingers simply refuse to accept the "two-chords"
+=expand-region= alternative.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map (kbd "M-\"")
+      (defun double-quote-word ()
+        "Put word at point in double quotes"
+        (interactive)
+        (setq boundaries (bounds-of-thing-at-point 'word))
+        (save-excursion
+          (goto-char (car boundaries))
+          (insert ?\")
+          (goto-char (+ 1 (cdr boundaries)))
+          (insert ?\"))))
+#+END_SRC
+
+* Jump to definition
+
+One of the reasons I switched to Emacs from commonly used IDEs (Visual Studio,
+Qt Creator, Eclipse, etc.) was the enormous bloat that came with those. It
+resulted in waiting for minutes to open a "project", constant lags and glitches
+due to code indexing or something, tons of menus and options without good and
+unified documentation, etc.
+
+After I started using Emacs, it really became obvious that all this bloat is, in
+fact, bloat - not comprehensiveness or rich functionality, but bloat. Because
+most of the common IDE features are pretty heavy and complex in implementation,
+yet, they don't have real use.
+
+You may ask, why do they want to implement these features, then? Simply because
+the features are "good looking", i.e. the concept is easy to explain, the usage
+is "intuitive", they claim solve a complex task in a simple way.
+
+But almost every such feature falls short when it's faced with real-life
+problems, because of the implementation complexity and lack of "fine-tuning"
+mechanisms. In other words, they build a huge, complex machine and provide a
+single big red button on the front with the label "Solve the problem!". In order
+to sell it to you, they showcase a problem, hit the button, the machine solves
+it - everybody is in awe. You take the machine home and try a simple example -
+it works as well - you are in total awe.
+
+But then you fetch an Android source tree, push the button - the machine doesn't
+respond. You try again - no luck. And the worst part is that you have nothing
+else, but the big red button, which doesn't work. So, your options are:
+
+- try to press the button with a different finger
+- try pressing with your leg
+- try punching the button
+- invite your mother to press it, because, you know, she may have a good luck
+
+In other words, such features are mostly pure marketing. And I wouldn't mind
+them if they were free. Heck, Emacs has a robot psychiatrist and a tower of
+Hanoi, which I don't mind at all, since it costs me nothing more than a couple
+of kilobytes.
+
+Emacs, on the contrary, has a different approach to solving complex problems. It
+doesn't pretend that complex problems are easy. Instead, it shows you the steps,
+that must be taken to solve it and what are the possible ways and their
+trade-offs.
+
+The problem we're going to talk about now is "jump to definition". Unlike,
+"intellectual" auto-completion, which I find practically useless, jumping to
+definition is quite handy.
+
+The common IDE solution is to index the code in background using some
+heuristics. It works mostly reasonable, but there are at least 3 issues.
+
+First, you have to have IDE "project files" to be able to use it. This may or
+may not be a critical problem, but it's definitely an issue. Your team may use
+different IDEs, so you have to either maintain multiple project files, or use
+some kind of generator program (like, CMake). If you're working on a third party
+project, which uses a different IDE, or simply uses Makefiles, you have to
+create the project files by yourself.
+
+Secondly, with code bases, like, for example, the Android OS tree, there is no
+grave to hold its body down. I mean, there is no IDE to load it at once.
+
+Third, I'm not aware of IDEs, that can be easily used to code on a remote
+machine via =ssh=.
+
+The alternative approach, used by Emacs and others, is to use a helper program,
+like =ctags=, to generate the index of the source code. The index has an
+information about all function and type definitions in the sources. In case of
+=ctags= and similar programs, the index is also called "tags file". Because most
+often it's just a single file with the name =TAGS=. Essentially, it consists of
+records, like "definition string + source file + byte offset in the
+file". However, the actual binary representation may vary.
+
+To generate the index using =ctags= you can use =M-x update-tags-file= (=C-x
+C-u=), which is provided below.
+
+This function will look for a tags file in the parent directories, and will
+suggest an execution command to update the existing tags file, or to generate a
+new one in the current directory.
+
+Note, that the suggested command uses =-e= flag, which is not available in
+=ctags= packaged with Emacs - you need to use Exuberant Ctags. Most likely, it
+can be found in your OS repositories (on Ubuntu, try =sudo apt-get install
+ctags=).
+
+If the index was already generated, you can use =M-x visit-tags-table= (=C-x
+C-v=) to simply load it. After the tags table is loaded you can call =M-x
+find-tag= (=M-.=) to jump to definition and =M-x pop-tag-mark= (=M-*=) to jump
+back.
+
+If you jumped not to the definition you wanted, you can provide a universal
+argument, like, =C-u M-.=, to jump to the next candidate. Personally, when I
+can't reach the desired definition after several attempts, I resort to =M-x
+tags-apropos= (=C-x C-l=). It gives you a list of all tags matching the provided
+regexp.
+
+You can load multiple tags files at once. For example, one for a library and
+another one for an application using the library. If you start getting a lot of
+matches in unrelated projects, you can call =M-x tags-reset-tags-tables= (=C-x
+C-t=) to forget about all of the loaded tags tables. And reload only the
+relevant ones after that.
+
+As you can see, the hard problem of indexing is not solved inside Emacs, but is
+delegated to specialized third-party software (=ctags= in that case). It is also
+noteworthy, that it works offline, i.e. the index generation step is explicit -
+it's not a background process.
+
+As for the scaling issue, I've used =ctags= to index the aforementioned Android
+source tree. The snapshot I used was about 10 Gb. Obviously, there were binary
+and other "non-source" files there, but still.
+
+The indexing process took something like 15 minutes, which may seem like a lot,
+but I doubt that you'll be doing this every day. The resulting tags file was
+about 1 Gb, which is not small as well, but it was taking roughly 2 seconds to
+jump to a definition, i.e. absolutely usable.
+
+Also, mind, that I carried out this experiment for academic purposes only. In
+practice, you won't need an index of the whole tree. Most likely, you will work
+on some sub-project and you can index only the code you're working with.
+
+As an epilogue, I would like to note once again, that this way of solving
+problems is very Emacs-y. Despite everybody is talking about how you do
+EVERYTHING inside Emacs, it's not quite accurate. Often enough, Emacs simply
+provides an interface to external programs, e.g. it doesn't fiddle around with
+git blobs, but provides a nice interface via =magit=.
+
+This approach has a lot of positive outcomes. The complex task is delegated to a
+specialized software, you can choose among different backends and you can still
+access it via "unified" Emacs-ish interface.
+
+#+BEGIN_SRC emacs-lisp
+  (defun parent-directory (dir)
+    "Returns parent directory of dir"
+    (when dir
+      (file-name-directory (directory-file-name (expand-file-name dir)))))
+
+  (defun search-file-up (name &optional path)
+    "Searches for file `name' in parent directories recursively"
+    (let* ((file-name (concat path name))
+           (parent (parent-directory path))
+           (path (or path default-directory)))
+      (cond
+       ((file-exists-p file-name) file-name)
+       ((string= parent path) nil)
+       (t (search-file-up name parent)))))
+
+  (define-key global-map "\C-x\C-u"
+    (defun update-tags-file (arg)
+      "Suggests options to update the TAGS file via ctags.
+
+  With prefix arg - makes a call as sudo. Works for remote hosts
+  also (>=23.4)"
+      (interactive "P")
+      (let ((tags-file-name
+             (read-file-name
+              "TAGS file: " (let ((fn (search-file-up "TAGS" default-directory)))
+                              (if fn
+                                  (parent-directory fn)
+                                default-directory))
+              nil nil "TAGS"))
+            (ctags-command "")
+            (languages (cl-case major-mode
+                         ((cc-mode c++-mode c-mode) "--languages=C,C++")
+                         ((d-mode) "--languages=D")
+                         (t ""))))
+        (when tags-file-name
+          (setq ctags-command (concat ctags-command "cd " (replace-regexp-in-string ".*:" "" (file-name-directory tags-file-name)) " && ")))
+
+        (setq ctags-command (concat ctags-command "ctags -e " languages " -R . "))
+
+        (with-temp-buffer
+          (when arg
+            (cd (add-sudo-to-filename (expand-file-name default-directory))))
+          (shell-command (read-from-minibuffer "ctags command: "  ctags-command)))
+        (visit-tags-table tags-file-name))))
+
+  (setq-default tags-case-fold-search nil)
+  (global-set-key "\C-x\C-v" 'visit-tags-table)
+  (global-set-key "\C-x\C-l" 'tags-apropos)
+  (global-set-key "\C-x\C-t" 'tags-reset-tags-tables)
+#+END_SRC
+
+Apparently, Emacs replaced the =etags= package with =xref= to provide similar
+functionality. I didn't have a chance to dig deeper into it, but so far,
+everything seems to work almost like before. The only personal inconvenience I
+noticed is that pop-mark is now located on =M-,= instead of =M-*= (which kind of
+makes sense). For compatibility reasons, I add the =M-*= alias as well
+
+#+BEGIN_SRC emacs-lisp
+  (when (require 'xref nil t)
+    (global-set-key (kbd "M-*") 'xref-pop-marker-stack))
+#+END_SRC
+
+* Whitespaces
+
+I prefer to never use tabs for indentation, so I make this rule default.
+However, there are cases when it is necessary to have tabs.
+
+First, tabs are required in Makefiles. But Emacs is smart enough to know about
+that, so you're fine as long as you're using =makefile-mode= for editing.
+
+The other situation is when you need to work on a third-party project, which
+uses tabs by default. Since consistency is more important than brilliance (at
+least in the case of whitespaces), you'll have to stick with that for this
+project.
+
+To override my default settings, I create a file with the name =.dir-locals.el=
+in the root of the project, and expand the =dirlocals= snippet:
+
+#+BEGIN_EXAMPLE
+  ((d-mode . ((indent-tabs-mode . t)
+              (tab-width . 4)
+              (c-basic-offset . 4)
+              (fill-column . 80))))
+#+END_EXAMPLE
+
+After that, every file in that folder, that will be opened in =d-mode= will use
+alternative values for the specified variables. Obviously, you can change
+=d-mode= to any other mode, or you can set it to =nil=, then the settings will
+apply to any file in the project.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default indent-tabs-mode nil)
+  (setq-default tab-width 4)
+#+END_SRC
+
+If the first whitespace commandment says that you can't mix tabs and spaces, the
+second one says that you can't have trailing whitespace. So, I kindly ask Emacs
+to remove it from each file upon saving.
+
+Some people do it conservatively, like, they fix only the lines that were
+actually edited. But I don't think there's anything wrong with committing
+trailing whitespace fixes. If the code maintainer doesn't look after it - he
+should suffer.
+
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'before-save-hook
+            (defun delete-trailing-whitespace-selectively ()
+              (when (not (member major-mode '(diff-mode fundamental-mode)))
+                (delete-trailing-whitespace))))
+#+END_SRC
+
+In case you want to inspect the whitespace in the code, you can make it visible,
+by turning the =whitespace-mode= on. It also has a =whitespace-cleanup=
+function, which is more invasive, than simple trailing whitespace removal. I
+call it manually when needed.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default whitespace-style (quote (face tabs trailing space-before-tab newline indentation empty space-after-tab tab-mark newline-mark)))
+#+END_SRC
+
+To leave only one space around point, you can use a handy =M-\= binding.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "M-\\") 'fixup-whitespace)
+#+END_SRC
+
+* User-friendliness
+
+There are several settings in my configuration, that I don't really use myself.
+But I found that lack of thereof spoils first impression for people that try
+this config out. So, I include some settings that make the experience more
+"intuitive" for ordinary people to not scare them away. I don't go as far as
+enabling CUA mode, because it would hurt the overall productivity. But I try at
+least to gather low-hanging fruits.
+
+** Dired mouse
+
+For example, I don't use the mouse, when I'm inside Emacs, but other people do.
+And one of the things is that a click in Dired creates windows by default and it
+looks pretty strange. So, I make it that the files and directories are opened in
+the same window.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key dired-mode-map (kbd "<mouse-2>") 'dired-find-file)
+#+END_SRC
+
+** Undo
+
+Undo in Emacs is bound to =C-/=, =C-_= and =C-x u=, which are not that common.
+Personally, I use =C-/= for undo. But over time I found, that I don't really use
+the default =C-z= binding, which hides the frame. So I figured, why not to make
+it undo as well.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-z") 'undo)
+#+END_SRC
+
+Another thing about undo is that, as I've said, I use =C-/= myself, but it's not
+representable with an ASCII control code, so it can't be sent to terminals.
+Mapping it to a "traditional" UNIX undo sequence =C-_= is a cute way around.
+
+#+BEGIN_SRC emacs-lisp
+  (define-key key-translation-map [?\C-/] [?\C-_])
+#+END_SRC
+
+** Escape
+
+By default, =ESC= key works as another =M-= modifier. But personally, I don't
+use it that way. And I noticed that hitting =ESC= is the first reaction of
+people, when they are lost and don't know what's happening.
+
+If you hit =ESC= three times, then it will call =keyboard-escape-quit=, which
+will most likely put everything into ordinary places. But I noticed that most of
+the people won't hit it three times - they become even more confused when =ESC=
+does nothing. Hitting =ESC= just once should be really enough.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key [escape] 'keyboard-escape-quit)
+  (define-key isearch-mode-map [escape] 'isearch-cancel)
+#+END_SRC
+
+** Revert buffer
+
+Most browsers bind "refresh" to =<f5>=. So, I think it's reasonable to bind it
+to =revert-buffer= for updating buffer contents to the latest state.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "<f5>") 'revert-buffer)
+#+END_SRC
+
+* Regional settings
+
+I live in Nizhniy Novgorod (formerly, Gorkiy), which is a third largest city in
+Russia. Obviously, I speak Russian, so I need to specify it as a default second
+language.
+
+If you try to use your system-level bindings for this, you'll find that
+bindings, like, =C-f= stop working. Because =f= is replaced with an alternative
+(russian) character, which is not recognized by Emacs.
+
+The solution is to change the input method inside Emacs - not on the
+system-level. The default binding for this is =C-\=.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default default-input-method "russian-computer")
+#+END_SRC
+
+Also, we regard Monday as a first week day, not Sunday.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default calendar-week-start-day 1)
+#+END_SRC
+
+* Scrolling
+
+Emacs will make some kind of "scrolling jump", when you move past the beginning
+or the end of the visible part of the buffer, which is really confusing. I
+expect the scrolling to happen line-by-line in that case.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default scroll-conservatively 1)
+#+END_SRC
+
+Another thing is that, when you try to move the point past the beginning or the
+end of the buffer - it will report an error. However, I find that moving cursor
+to the extreme position before reporting an error is more convenient.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default scroll-error-top-bottom t)
+#+END_SRC
+
+Scrolling one line without moving the cursor seems like a good idea, so I
+allocated a couple of bindings for that. Admittedly, I don't really use it on a
+common basis, but maybe one day I will.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "M-P") 'scroll-down-line)
+  (global-set-key (kbd "M-N") 'scroll-up-line)
+#+END_SRC
+
+A lot of the time scrolling and moving the cursor come close together. For
+example, you can scroll the screen using =C-p= and =C-n=, when the cursor is
+near the border. Or you can move the cursor using =C-v= and =M-v= to scroll by
+screens. Moving the cursor by paragraph is something in between those 2 options.
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "C-M-p") 'backward-paragraph)
+  (global-set-key (kbd "C-M-n") 'forward-paragraph)
+  (global-set-key (kbd "C-M-l") 'recenter-top-bottom)
+#+END_SRC
+
+* Line wrap
+
+I guess, it's a matter of taste, whether long lines should be wrapped or
+truncated. I prefer the latter by default. In the rare cases, when I need to see
+the whole line at once, I use =C-x t=.
+
+#+BEGIN_SRC emacs-lisp
+  (setq-default truncate-lines t)
+  (global-set-key (kbd "C-x t") 'toggle-truncate-lines)
+#+END_SRC
+
+* Do thing at point
+
+When I just started using Emacs, I came upon a blog post. It described how you
+can define a function to do something with the value at point. It was something
+about converting geographic coordinates, if I recall correctly. At that time I
+thought - "Why would anybody want to do this?".
+
+But after I got more familiar with Emacs Lisp and writing a small function was
+no longer a problem to me, I started thinking "Why WOULDN'T you want to do
+this?!".
+
+** Increment a number
+
+#+BEGIN_SRC emacs-lisp
+  (define-key global-map "\C-c+"
+    (defun increment-decimal-number-at-point (&optional arg)
+      "Increment the number at point by `arg'."
+      (interactive "p*")
+      (save-excursion
+        (save-match-data
+          (let (inc-by field-width answer)
+            (setq inc-by (if arg arg 1))
+            (skip-chars-backward "0123456789")
+            (when (re-search-forward "[0-9]+" nil t)
+              (setq field-width (- (match-end 0) (match-beginning 0)))
+              (setq answer (+ (string-to-number (match-string 0) 10) inc-by))
+              (when (< answer 0)
+                (setq answer (+ (expt 10 field-width) answer)))
+              (replace-match (format (concat "%0" (int-to-string field-width) "d")
+                                     answer))))))))
+#+END_SRC
+
+** Find file or URL
+
+#+BEGIN_SRC emacs-lisp
+  (global-set-key (kbd "\C-c\C-o") 'find-file-at-point)
+#+END_SRC
+
+* Auxiliary files
+
+Emacs creates some auxiliary files for operation. Some examples include:
+
+- Lock files (symbolic links starting with =.#=). Those files are created when
+  the buffer becomes modified. Presence of the lock file denotes to other
+  applications that it may not be safe to modify it.
+
+- Auto-save files (starting and ending with =#=). If the buffer stays in a
+  modified state for some time (1 minute or something), Emacs dumps its contents
+  to an auto-save file.
+
+- Backup files (end with =~=) - second-to-last saved version. It's possible to
+  save those in a separate directory, so they don't create litter.
+
+  #+BEGIN_SRC emacs-lisp
+    ;; write backup files to own directory
+    (setq backup-directory-alist
+          `(("." . ,(expand-file-name
+                     (concat user-emacs-directory "backups")))))
+    ;; make backups of files, even when they're under version control
+    (setq vc-make-backup-files t)
+  #+END_SRC
+
+* Recursive minibuffers
+
+Emacs will issue an error if some command needs a minibuffer when you're already
+in the minibuffer. But it's an unnecessary limitation.
+
+#+BEGIN_SRC emacs-lisp
+  (setq enable-recursive-minibuffers t)
+#+END_SRC
+
+# Local Variables:
+# compile-command: "emacs -batch -l org -l ob-tangle --eval \"(find-file \\\"/home/sergei/.emacs.d/emacs-init.org\\\")\" --eval \"(org-babel-tangle nil \\\"/tmp/emacs-init-compile.el\\\")\" --eval \"(batch-byte-compile-file \\\"/tmp/emacs-init-compile.el\\\")\" 2>&1 | sed -n '/Warning\\|Error/p' | xargs -r ls"
+# End:
