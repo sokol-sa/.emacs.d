@@ -30,7 +30,7 @@
 ;; MELPA initialization
 (require 'package)
 (add-to-list 'package-archives
-	     '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+	     '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
 
 (unless package-archive-contents
@@ -74,7 +74,9 @@
  '(custom-safe-themes
    '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
 	 default))
- '(package-selected-packages nil))
+ '(package-selected-packages
+   '(atom-one-dark-theme company magit racket-mode slime vterm windsize
+						 xterm-color)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
