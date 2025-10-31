@@ -15,6 +15,7 @@
 
 (global-set-key (kbd "TAB") 'self-insert-command)	;; Enable insert indent with TAB-key
 (setq-default tab-width 4)							;; Set TAB indent in 4 symbols
+(setq ring-bell-function 'ignore)					;; shut up the bell
 
 ;; Define function for align all comments
 (defun align-comments ()
