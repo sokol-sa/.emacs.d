@@ -16,6 +16,7 @@
 (global-set-key (kbd "TAB") 'self-insert-command)	;; Enable insert indent with TAB-key
 (setq-default tab-width 4)							;; Set TAB indent in 4 symbols
 (setq ring-bell-function 'ignore)					;; shut up the bell
+(defalias 'yes-or-no-p 'y-or-n-p)					;; Use y and n for answer
 
 ;; Define function for align all comments
 (defun align-comments ()
@@ -75,8 +76,8 @@
    '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
 	 default))
  '(package-selected-packages
-   '(atom-one-dark-theme company magit racket-mode slime vterm windsize
-						 xterm-color)))
+   '(atom-one-dark-theme company magit racket-mode slime vterm
+						 vterm-hotkey windsize xterm-color)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
