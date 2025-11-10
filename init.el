@@ -75,13 +75,36 @@
 
 (setq inferior-lisp-program "sbcl")					;; Set path to SBCL
 
+;; -> ELEC-PAIR
+;; Builtin packages
+;; Automatic insert pair symbols.
+;; If select region then pairing all select
+(use-package elec-pair
+	:config
+	(dolist (pair '((?\( . ?\))		;; ()
+					(?\[ . ?\])		;; []
+					(?{  . ?})		;; {}
+					(?«  . ?»)		;; «»
+					(?‘  . ’?)		;; ‘’
+					(?‚  . ‘?)		;; ‚‘
+					(?“  . ”?)))	;; “”))
+	(add-to-list 'electric-pair-pairs pair))
+	:hook
+	((adoc-mode
+		conf-mode
+		emacs-lisp-mode
+		markdown-mode
+		python-mode
+		racket-mode
+		scheme-mode
+		ruby-mode) . electric-pair-local-mode))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(custom-enabled-themes '(atom-one-dark))
+ '(custom-enabled-themes '(manoj-dark))
  '(custom-safe-themes
    '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
 	 default))
