@@ -85,6 +85,19 @@
 (dolist (package-need-install '(atom-one-dark-theme company magit racket-mode slime tramp windsize xterm-color))
   (eval `(use-package ,package-need-install)))
 
+;; Help for actual keybindings in EMACS
+(use-package which-key
+	:ensure t
+	:delight ""
+	:custom
+	(which-key-computer-remaps t "Print actual keybindings, but not IS AS")
+	(which-key-idle-delay 2 "Pause befor help")
+	(which-key-idle-secondary-delay 0.05 "More pause befor help")
+	(which-key-show-major-mode t "It is a [C-h m], but in format which-key")
+	:config
+	(which-key-mode 1)
+	(which-key-setup-minibuffer))
+
 ;; Builtin package. Save and restore EMACS state between session
 (use-package desktop
 	:custom
