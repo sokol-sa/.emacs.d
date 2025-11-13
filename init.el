@@ -41,7 +41,7 @@
 
 ;;(setq ring-bell-function 'ignore)					;; shut up the bell
 
-(keymap-global-set "TAB" 'self-insert-command)	;; Enable insert indent with TAB-key
+(keymap-global-set "TAB" 'self-insert-command)		;; Enable insert indent with TAB-key
 (setq-default tab-width 4)							;; Set TAB indent in 4 symbols
 
 ;; Define function for align all comments
@@ -50,7 +50,7 @@
   (interactive)															
   (align-regexp (region-beginning) (region-end)							
                 (concat "\\(\\s-*\\)" (regexp-quote comment-start))))	
-(keymap-global-set "C-c a c" 'align-comments)	;; Set keybindings for align-comments
+(keymap-global-set "C-c a c" 'align-comments)		;; Set keybindings for align-comments
 
 (keymap-global-set "C-x C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
 
@@ -63,14 +63,14 @@
 (package-initialize)
 
 ;; Set priorities of archives
-(custom-set-variables)
+(custom-set-variables
 	'(package-archive-priorities
         '(("gnu" . 40)
           ("nongnu" . 30)
           ("melpa-stable" . 20)
           ("melpa" . 10)))
- '(package-native-compile t "Compile packages from install but not first start")
- '(package-user-dir init-emacs-package-user-dir)
+ 	'(package-native-compile t "Compile packages from install but not first start")
+ 	'(package-user-dir init-emacs-package-user-dir))
 
 (unless package-archive-contents
   (message "Refresh list archives")
