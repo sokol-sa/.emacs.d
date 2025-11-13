@@ -52,7 +52,7 @@
                 (concat "\\(\\s-*\\)" (regexp-quote comment-start))))	
 (keymap-global-set "C-c a c" 'align-comments)	;; Set keybindings for align-comments
 
-(keymap-global-set "\C-x\ \C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
+(keymap-global-set "C-x C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
 
 ;; Packages initialization
 (require 'package)
