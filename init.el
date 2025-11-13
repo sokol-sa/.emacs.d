@@ -69,8 +69,7 @@
           ("nongnu" . 30)
           ("melpa-stable" . 20)
           ("melpa" . 10)))
- 	'(package-native-compile t "Compile packages from install but not first start")
- 	'(package-user-dir init-emacs-package-user-dir))
+ 	'(package-native-compile t "Compile packages from install but not first start"))
 
 (unless package-archive-contents
   (message "Refresh list archives")
