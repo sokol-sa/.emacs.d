@@ -101,10 +101,10 @@
 ;; Builtin package. Save and restore EMACS state between session
 (use-package desktop
 	:custom
-	(desktop-auto-save-timeout 20 "Автосохранение каждые 20 секунд")
-	(desktop-load-locked-desktop t "Загрузка desktop-файла даже если он заблокирован")
-	(desktop-restore-frames t "Восстанавливать состояние фреймов")
-	(desktop-save t "Сохранять состояние рабочего стола без лишних вопросов")
+	(desktop-auto-save-timeout 20 "Autosave every 20 second")
+	(desktop-load-locked-desktop t "Load desktop-file but if it blocked")
+	(desktop-restore-frames t "Restore frame state")
+	(desktop-save t "Save state desktop without questions")
 	:config
 	;; Modes buffersnot need save and restore
 	(add-to-list 'desktop-modes-not-to-save 'dired-mode)
