@@ -13,7 +13,8 @@
  '(ido-mode #'both "Enable extra open file mode")
  '(save-place-mode t "Enable restore cursor position in file")
  '(delete-selection-mode t "Enable delete marked text with typing or DEL, BACKSPACE")
- '(ring-bell-function #'ignore "Shut up the bell"))
+ '(ring-bell-function #'ignore "Shut up the bell")
+ '(dired-kill-when-opening-new-dired-buffer t "Delete buffer when goto next directory"))
 
 (when (fboundp 'tool-bar-mode)						;; If EMACS run in GUI mode
   (custom-set-variables
