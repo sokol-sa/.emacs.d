@@ -83,7 +83,13 @@
 (setq use-package-always-ensure t)					;; Always check present package befor install
 
 ;; Install needed packages
-(dolist (package-need-install '(atom-one-dark-theme company magit racket-mode slime tramp windsize xterm-color))
+(dolist (package-need-install '(atom-one-dark-theme
+								company magit racket-mode
+								slime tramp windsize
+								xterm-color
+								cider clojure-mode clojure-snippets
+								helm helm-cider paredit yasnippet
+								yasnippet-snippets))
   (eval `(use-package ,package-need-install)))
 
 ;; Help for actual keybindings in EMACS
