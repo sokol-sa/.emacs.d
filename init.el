@@ -216,6 +216,11 @@
 		clojure-mode 
 		ruby-mode) . electric-pair-local-mode))
 
+;; -> LSP enabled for any programming mode and yasnippet mode 
+(add-hook 'prog-mode-hook #'lsp)
+(add-hook 'prog-mode-hook #'yas-minor-mode)
+
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
