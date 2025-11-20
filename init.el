@@ -217,9 +217,11 @@
 		ruby-mode) . electric-pair-local-mode))
 
 ;; -> LSP enabled for any programming mode and yasnippet mode 
-(add-hook 'prog-mode-hook #'lsp)
-(add-hook 'prog-mode-hook #'yas-minor-mode)
-
+(add-hook 'prog-mode-hook
+          (lambda ()
+            (unless (derived-mode-p 'emacs-lisp-mode)
+              (lsp)
+              (yas-minor-mode 1))))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
