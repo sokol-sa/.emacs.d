@@ -98,7 +98,7 @@
 								xterm-color eglot 
 								cider clojure-mode clojure-snippets
 								helm helm-cider helm-lsp paredit
-								lsp-mode lsp-mssql lsp-scheme 
+								lsp-mode lsp-mssql lsp-scheme lsp-ui
 								yasnippet yasnippet-snippets))
   (eval `(use-package ,package-need-install)))
 
