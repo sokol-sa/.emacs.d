@@ -14,7 +14,16 @@
  '(save-place-mode t "Enable restore cursor position in file")
  '(delete-selection-mode t "Enable delete marked text with typing or DEL, BACKSPACE")
  '(ring-bell-function #'ignore "Shut up the bell")
- '(dired-kill-when-opening-new-dired-buffer t "Delete buffer when goto next directory"))
+ '(dired-kill-when-opening-new-dired-buffer t "Delete buffer when goto next directory")
+
+ '(custom-enabled-themes '(manoj-dark))
+ '(custom-safe-themes
+   '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
+	 default))
+ '(package-selected-packages
+   '(atom-one-dark-theme company magit racket-mode slime vterm
+						 vterm-hotkey windsize xterm-color)))
+
 
 (when (fboundp 'tool-bar-mode)						;; If EMACS run in GUI mode
   (custom-set-variables
@@ -165,18 +174,6 @@
 		clojure-mode 
 		ruby-mode) . electric-pair-local-mode))
 
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(custom-enabled-themes '(manoj-dark))
- '(custom-safe-themes
-   '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
-	 default))
- '(package-selected-packages
-   '(atom-one-dark-theme company magit racket-mode slime vterm
-						 vterm-hotkey windsize xterm-color)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
