@@ -86,10 +86,11 @@
 (dolist (package-need-install '(atom-one-dark-theme
 								company magit racket-mode
 								slime tramp windsize
-								xterm-color
+								xterm-color eglot 
 								cider clojure-mode clojure-snippets
-								helm helm-cider paredit yasnippet
-								yasnippet-snippets))
+								helm helm-cider helm-lsp paredit
+								lsp-mode lsp-mssql lsp-scheme 
+								yasnippet yasnippet-snippets))
   (eval `(use-package ,package-need-install)))
 
 ;; Help for actual keybindings in EMACS
@@ -160,6 +161,8 @@
 		python-mode
 		racket-mode
 		scheme-mode
+		c++-mode
+		clojure-mode 
 		ruby-mode) . electric-pair-local-mode))
 
 (custom-set-variables
