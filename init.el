@@ -130,6 +130,33 @@
 	;; Switch mode to enable
 	(desktop-save-mode 1))
 
+;; -> EGLOT
+;; Package for support LSP.
+;; https://elpa.gnu.org/packages/eglot.html
+(use-package eglot
+  :ensure t
+  :vc (
+	   :url "https://github.com/joaotavora/eglot.git"
+	   :rev "1.17")
+  :defer t
+  :config
+  (add-to-list 'eglot-server-programs '(ansible-mode . ("ansible-language-server" "--stdio")))
+  (add-to-list 'eglot-server-programs '(dockerfile-mode . ("docker-langserver" "--stdio")))
+  (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
+  (add-to-list 'eglot-server-programs '(python-mode . ("jedi-language-server")))
+  (add-to-list 'eglot-server-programs '(rst-mode . ("esbonio")))
+  (add-to-list 'eglot-server-programs '(ruby-mode . ("bundle" "exec" "rubocop" "--lsp")))
+  (add-to-list 'eglot-server-programs '(yaml-mode . ("yaml-language-server")))
+  :hook
+  ((ansible-mode
+	dockerfile-mode
+	markdown-mode
+	python-mode
+	rst-mode
+	ruby-mode
+	yaml-mode
+	) . eglot-ensure))
+
 ;; -> HELM
 ;; https://github.com/emacs-helm/helm
 ;; Help's and autocomplete input
