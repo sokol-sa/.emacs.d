@@ -130,6 +130,21 @@
 	;; Switch mode to enable
 	(desktop-save-mode 1))
 
+;; -> HELM
+;; https://github.com/emacs-helm/helm
+;; Help's and autocomplete input
+;; [C-o] — switch between source help's (history or full command list)
+(use-package helm
+  :ensure t
+  :diminish ""
+  :config
+  (helm-mode 1)
+  :bind (:map global-map
+			  ("C-x C-f" . helm-find-files)
+			  ("C-x b" . helm-buffers-list)
+			  ("M-x" . helm-M-x)
+			  ("M-y" . helm-show-kill-ring)))
+
 (global-company-mode)								;; Enable global mode autocomplete
 
 ;; Enable smooth scroll buffer
