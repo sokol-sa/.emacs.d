@@ -1,60 +1,44 @@
-;; Start initialization
-(custom-set-variables
- '(menu-bar-mode nil "Hide menu on top")
- '(tab-bar-mode t "Enable tab's on top")
- '(use-short-answers t "y and n for answers")
- '(inhibit-splash-screen t "Disable start screen EMACS")
- '(initial-scratch-message nil "Disable message on top SCRATCH buffer")
- '(use-file-dialog nil "Ask for textual confirmation instead of GUI")
- '(make-backup-files nil "Don't make backup file")
- '(auto-save-list-file-name nil "Don't make autosave file list")
- '(auto-save-default nil "Disable default autosave files buffer")
- '(recentf-mode t "Enable mode of recent files")
- '(ido-mode #'both "Enable extra open file mode")
- '(save-place-mode t "Enable restore cursor position in file")
- '(delete-selection-mode t "Enable delete marked text with typing or DEL, BACKSPACE")
- '(ring-bell-function #'ignore "Shut up the bell")
- '(dired-kill-when-opening-new-dired-buffer t "Delete buffer when goto next directory")
+;; -> Start initialization
 
- '(custom-enabled-themes '(manoj-dark))
- '(custom-safe-themes
-   '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
-	 default))
- '(package-selected-packages
-   '(atom-one-dark-theme company magit racket-mode slime vterm
-						 vterm-hotkey windsize xterm-color)))
+;; -> If EMACS run in GUI mode
+(when (fboundp 'tool-bar-mode)
+  (tool-bar-mode -1)	;; Disable bar icon on top
+  (scroll-bar-mode -1)) ;; Disable scrollbar
+;; -> Hide menu on top
+(menu-bar-mode -1)
+;; -> Enable tab's on top
+(tab-bar-mode 1)
+;; -> Enable insert indent with TAB-key
+(keymap-global-set "TAB" 'self-insert-command)
+;; -> Set TAB indent in 4 symbols
+(setq-default tab-width 4)
+;; -> Enable IDO-mode to all buffers
+(ido-mode 'both)
+;; -> Enable mode of list recent files
+(recentf-mode 1)
+;; -> Enable restore cursor position in file
+(save-place-mode 1)
+;; -> Enable delete marked text with typing or DEL, BACKSPACE
+(delete-selection-mode 1)
+;; -> Set some variables
+(setq use-short-answers t							;; Use short y and n for answers
+	  inhibit-splash-screen t						;; Disable start screen EMACS
+	  initial-scratch-message nil					;; Disable message on top SCRATCH buffer
+	  use-file-dialog nil							;; Ask for textual confirmation instead of GUI
+	  make-backup-files nil							;; Don't make backup file
+	  auto-save-list-file-name nil					;; Don't make autosave file list
+	  auto-save-default nil							;; Disable default autosave files buffer
+	  ring-bell-function 'ignore					;; Shut up the bell
+	  dired-kill-when-opening-new-dired-buffer t)	;; Delete buffer when goto next directory
 
+;; -> Enable smooth scroll buffer
+(setq redisplay-dont-pause t
+      scroll-margin 5
+      scroll-step 1
+      scroll-conservatively 10000
+      scroll-preserve-screen-position 1)
 
-(when (fboundp 'tool-bar-mode)						;; If EMACS run in GUI mode
-  (custom-set-variables
-   '(tool-bar-mode nil "Disable bar icon on top")
-   '(scroll-bar-mode nil "Disable scrollbar")))
-
-;;(menu-bar-mode -1)									;; Hide menu on top
-;;(tab-bar-mode t)									;; Enable tab's on top
-;;(setq inhibit-splash-screen t)						;; Disable start screen EMACS
-;;(if (display-graphic-p)
-;;    (scroll-bar-mode -1))							;; Hide scrollbar in GUI mode
-;;(tool-bar-mode -1)									;; Hide bar icon on top
-
-;;(setq-default initial-scratch-message nil)			;; Disable message on top SCRATCH buffer
-;; (setq use-file-dialog nil)							;; Ask for textual confirmation instead of GUI
-;;(setq make-backup-files nil)						;; Don't make backup file
-;;(setq auto-save-list-file-name nil)					;; Don't make autosave list
-;;(setq auto-save-default nil)						;; Diasable default autosave files buffer
-
-;;(recentf-mode t)									;; Enable menu of recent files
-
-;;(ido-mode 1)										;; Enable extra open file mode
-
-;;(defalias 'yes-or-no-p 'y-or-n-p)					;; Use y and n for answer
-
-;;(setq ring-bell-function 'ignore)					;; shut up the bell
-
-(keymap-global-set "TAB" 'self-insert-command)		;; Enable insert indent with TAB-key
-(setq-default tab-width 4)							;; Set TAB indent in 4 symbols
-
-;; Define function for align all comments
+;; -> Define function for align all comments in region
 (defun align-comments ()
   "Align all comments in region by comment char."
   (interactive)															
@@ -64,6 +48,14 @@
 
 (keymap-global-set "C-x C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
 
+;;-> Set priorities of archives
+(setq package-archive-priorities
+      '(("gnu" . 40)
+        ("nongnu" . 30)
+        ("melpa-stable" . 20)
+        ("melpa" . 10))
+ 	  package-native-compile t) "Compile packages from install but not first start"
+
 ;; Packages initialization
 (require 'package)
 (add-to-list 'package-archives '("gnu" . "https://elpa.gnu.org/packages/") t)
@@ -72,24 +64,22 @@
 (add-to-list 'package-archives '("nongnu" . "https://elpa.nongnu.org/nongnu/") t)
 (package-initialize)
 
-;; Set priorities of archives
-(custom-set-variables
-	'(package-archive-priorities
-        '(("gnu" . 40)
-          ("nongnu" . 30)
-          ("melpa-stable" . 20)
-          ("melpa" . 10)))
- 	'(package-native-compile t "Compile packages from install but not first start"))
-
+;; -> Refresh packages list if it not present
 (unless package-archive-contents
   (message "Refresh list archives")
-  (package-refresh-contents))						;; Refresh packages list if it not present
+  (package-refresh-contents))						
 
-;;(unless (package-installed-p 'use-package)			;; Uncomment this if needed oldest version EMACS <30
+;;(unless (package-installed-p 'use-package)			;; Uncomment this if needed oldest version EMACS <28
 ;;	(package-install 'use-package))
 
-(require 'use-package)								;; Enable to use 'use-package package
-(setq use-package-always-ensure t)					;; Always check present package befor install
+;; -> Enable to use 'use-package package
+(require 'use-package)
+;; -> Always check present package befor install
+(setq use-package-always-ensure t)
+
+;; -> A dark theme with contrasting colours
+(use-package abyss-theme
+  :defer t)
 
 ;; Install needed packages
 (dolist (package-need-install '(atom-one-dark-theme
@@ -97,25 +87,11 @@
 								slime tramp windsize
 								xterm-color eglot 
 								cider clojure-mode clojure-snippets
-								helm helm-cider helm-lsp paredit
-								lsp-mode lsp-mssql lsp-scheme lsp-ui
+								helm helm-cider paredit
 								yasnippet yasnippet-snippets))
   (eval `(use-package ,package-need-install)))
 
-;; Help for actual keybindings in EMACS
-(use-package which-key
-	:ensure t
-	:delight ""
-	:custom
-	(which-key-computer-remaps t "Print actual keybindings, but not IS AS")
-	(which-key-idle-delay 2 "Pause befor help")
-	(which-key-idle-secondary-delay 0.05 "More pause befor help")
-	(which-key-show-major-mode t "It is a [C-h m], but in format which-key")
-	:config
-	(which-key-mode 1)
-	(which-key-setup-minibuffer))
-
-;; Builtin package. Save and restore EMACS state between session
+;; -> Builtin package. Save and restore EMACS state between session
 (use-package desktop
 	:custom
 	(desktop-auto-save-timeout 20 "Autosave every 20 second")
@@ -129,66 +105,6 @@
 	(add-to-list 'desktop-modes-not-to-save 'info-lookup-mode)
 	;; Switch mode to enable
 	(desktop-save-mode 1))
-
-;; -> EGLOT
-;; Package for support LSP.
-;; https://elpa.gnu.org/packages/eglot.html
-(use-package eglot
-  :ensure t
-  :vc (
-	   :url "https://github.com/joaotavora/eglot.git"
-	   :rev "1.17")
-  :defer t
-  :config
-  (add-to-list 'eglot-server-programs '(ansible-mode . ("ansible-language-server" "--stdio")))
-  (add-to-list 'eglot-server-programs '(dockerfile-mode . ("docker-langserver" "--stdio")))
-  (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
-  (add-to-list 'eglot-server-programs '(python-mode . ("jedi-language-server")))
-  (add-to-list 'eglot-server-programs '(rst-mode . ("esbonio")))
-  (add-to-list 'eglot-server-programs '(ruby-mode . ("bundle" "exec" "rubocop" "--lsp")))
-  (add-to-list 'eglot-server-programs '(yaml-mode . ("yaml-language-server")))
-  :hook
-  ((ansible-mode
-	dockerfile-mode
-	markdown-mode
-	python-mode
-	rst-mode
-	ruby-mode
-	yaml-mode
-	) . eglot-ensure))
-
-;; -> HELM
-;; https://github.com/emacs-helm/helm
-;; Help's and autocomplete input
-;; [C-o] — switch between source help's (history or full command list)
-(use-package helm
-  :ensure t
-  :diminish ""
-  :config
-  (helm-mode 1)
-  :bind (:map global-map
-			  ("C-x C-f" . helm-find-files)
-			  ("C-x b" . helm-buffers-list)
-			  ("M-x" . helm-M-x)
-			  ("M-y" . helm-show-kill-ring)))
-
-(global-company-mode)								;; Enable global mode autocomplete
-
-;; Enable smooth scroll buffer
-(setq redisplay-dont-pause t
-      scroll-margin 5
-      scroll-step 1
-      scroll-conservatively 10000
-      scroll-preserve-screen-position 1)
-
-(windmove-default-keybindings)						;; Turn keybindings for move to other window with S-<cursur> keys
-
-;;(require 'windsize)
-(windsize-default-keybindings)						;; Turn keybindings for change window size with C-S-<cursor> keys
-(setq windsize-cols 1)								;; Set change step to 1 column
-(setq windsize-rows 1)								;; Set change step to 1 row
-
-(setq inferior-lisp-program "sbcl")					;; Set path to SBCL
 
 ;; -> ELEC-PAIR
 ;; Builtin packages
@@ -216,12 +132,104 @@
 		clojure-mode 
 		ruby-mode) . electric-pair-local-mode))
 
-;; -> LSP enabled for any programming mode and yasnippet mode 
+;; -> Enable global mode autocomplete
+(use-package company
+  :defer 1
+  :config
+  (global-company-mode))
+
+;; -> Turn keybindings for move to other window with S-<cursur> keys
+(windmove-default-keybindings)
+
+;; -> Turn keybindings for change window size with C-S-<cursor> keys
+(use-package windsize
+  :config
+  (windsize-default-keybindings)	
+  (setq windsize-cols 1				;; Set change step to 1 column
+		windsize-rows 1))			;; Set change step to 1 row
+
+;; -> HELM
+;; https://github.com/emacs-helm/helm
+;; Help's and autocomplete input
+;; [C-o] — switch between source help's (history or full command list)
+(use-package helm
+  :ensure t
+  :diminish ""
+  :config
+  (helm-mode 1)
+  :bind (:map global-map
+			  ("C-x C-f" . helm-find-files)
+			  ("C-x b" . helm-buffers-list)
+			  ("M-x" . helm-M-x)
+			  ("M-y" . helm-show-kill-ring)))
+
+;; -> Help for actual keybindings in EMACS
+(use-package which-key
+	:ensure t
+	:delight ""
+	:custom
+	(which-key-computer-remaps t "Print actual keybindings, but not IS AS")
+	(which-key-idle-delay 2 "Pause befor help")
+	(which-key-idle-secondary-delay 0.05 "Second pause befor help")
+	(which-key-show-major-mode t "It is a [C-h m], but in format which-key")
+	:config
+	(which-key-mode 1)
+	(which-key-setup-minibuffer))
+
+;; -> EGLOT
+;; Package for support LSP.
+;; https://elpa.gnu.org/packages/eglot.html
+(use-package eglot
+  :ensure t
+  :defer t
+  :config
+  ;; Additional servers for various modes
+  (add-to-list 'eglot-server-programs '(ansible-mode . ("ansible-language-server" "--stdio")))
+  (add-to-list 'eglot-server-programs '(dockerfile-mode . ("docker-langserver" "--stdio")))
+  (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
+  (add-to-list 'eglot-server-programs '(python-mode . ("jedi-language-server")))
+  (add-to-list 'eglot-server-programs '(rst-mode . ("esbonio")))
+  (add-to-list 'eglot-server-programs '(ruby-mode . ("bundle" "exec" "rubocop" "--lsp")))
+  (add-to-list 'eglot-server-programs '(yaml-mode . ("yaml-language-server")))
+  :hook
+  ((ansible-mode
+	dockerfile-mode
+	markdown-mode
+	python-mode
+	rst-mode
+	ruby-mode
+	yaml-mode
+	) . eglot-ensure))
+
+;; -> Enable snippets
+(use-package yasnippet
+  :defer t
+  :config
+  (yas-reload-all))
+
+;; -> Add package snippets for yasnippet
+(use-package yasnippet-snippets
+  :defer t)
+
+;; -> EGLOT enabled for any programming mode and yasnippet mode 
 (add-hook 'prog-mode-hook
           (lambda ()
             (unless (derived-mode-p 'emacs-lisp-mode)
-              (lsp)
+              (eglot-ensure)
               (yas-minor-mode 1))))
+
+(setq inferior-lisp-program "sbcl")	;; Set path to SBCL
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(custom-enabled-themes '(manoj-dark))
+ '(custom-safe-themes
+   '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
+	 default))
+ '(package-selected-packages nil))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
