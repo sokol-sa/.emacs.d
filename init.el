@@ -1,16 +1,23 @@
 ;; -> Start initialization
 
-;; -> If EMACS run in GUI mode
+;; -> If EMACS run in GUI mode / has these functions
 (when (fboundp 'tool-bar-mode)
-  (tool-bar-mode -1)	;; Disable bar icon on top
-  (scroll-bar-mode -1)) ;; Disable scrollbar
+  (tool-bar-mode -1))          ;; Disable bar icon on top
+;; -> If EMACS run in GUI mode / has these functions
+(when (fboundp 'scroll-bar-mode)
+  (scroll-bar-mode -1))        ;; Disable scrollbar
 ;; -> Hide menu on top
 (menu-bar-mode -1)
 ;; -> Enable tab's on top
 (tab-bar-mode 1)
-;; -> Enable insert indent with TAB-key
-(keymap-global-set "TAB" 'self-insert-command)
-;; -> Set TAB indent in 4 symbols
+;; -> Enable insert TAB-key or indent region with TAB-key
+(defun my-tab ()
+  "If region is active – indent it, otherwise insert a TAB char."
+  (interactive)
+  (if (use-region-p)
+      (indent-region (region-beginning) (region-end))
+    (insert "\t"))) ;; Really TAB
+(keymap-global-set "TAB" #'my-tab)
 (setq-default tab-width 4)
 ;; -> Enable IDO-mode to all buffers
 (ido-mode 'both)
@@ -54,7 +61,7 @@
         ("nongnu" . 30)
         ("melpa-stable" . 20)
         ("melpa" . 10))
- 	  package-native-compile t) "Compile packages from install but not first start"
+ 	  package-native-compile t) ;; "Compile packages from install but not first start"
 
 ;; Packages initialization
 (require 'package)
@@ -83,12 +90,11 @@
 
 ;; Install needed packages
 (dolist (package-need-install '(atom-one-dark-theme
-								company magit racket-mode
-								slime tramp windsize
-								xterm-color eglot 
+								magit racket-mode
+								slime tramp
+								xterm-color
 								cider clojure-mode clojure-snippets
-								helm helm-cider paredit
-								yasnippet yasnippet-snippets))
+								helm-cider paredit))
   (eval `(use-package ,package-need-install)))
 
 ;; -> Builtin package. Save and restore EMACS state between session
@@ -116,9 +122,9 @@
 					(?\[ . ?\])		;; []
 					(?{  . ?})		;; {}
 					(?«  . ?»)		;; «»
-					(?‘  . ’?)		;; ‘’
-					(?‚  . ‘?)		;; ‚‘
-					(?“  . ”?)))	;; “”))
+					(?‘  . ?’)		;; ‘’
+					(?‚  . ?‘)		;; ‚‘
+					(?“  . ?”)))	;; “”
 	(add-to-list 'electric-pair-pairs pair))
 	:hook
 	((adoc-mode
@@ -190,16 +196,7 @@
   (add-to-list 'eglot-server-programs '(python-mode . ("jedi-language-server")))
   (add-to-list 'eglot-server-programs '(rst-mode . ("esbonio")))
   (add-to-list 'eglot-server-programs '(ruby-mode . ("bundle" "exec" "rubocop" "--lsp")))
-  (add-to-list 'eglot-server-programs '(yaml-mode . ("yaml-language-server")))
-  :hook
-  ((ansible-mode
-	dockerfile-mode
-	markdown-mode
-	python-mode
-	rst-mode
-	ruby-mode
-	yaml-mode
-	) . eglot-ensure))
+  (add-to-list 'eglot-server-programs '(yaml-mode . ("yaml-language-server"))))
 
 ;; -> Enable snippets
 (use-package yasnippet
@@ -211,11 +208,11 @@
 (use-package yasnippet-snippets
   :defer t)
 
-;; -> EGLOT enabled for any programming mode and yasnippet mode 
+;; -> Yasnippet minor-mode enabled for any programming mode and yasnippet mode 
 (add-hook 'prog-mode-hook
           (lambda ()
             (unless (derived-mode-p 'emacs-lisp-mode)
-              (eglot-ensure)
+			  (eglot-ensure)
               (yas-minor-mode 1))))
 
 (setq inferior-lisp-program "sbcl")	;; Set path to SBCL
