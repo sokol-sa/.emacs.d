@@ -89,9 +89,8 @@
   :defer t)
 
 ;; Install needed packages
-(dolist (package-need-install '(atom-one-dark-theme
-								magit racket-mode
-								slime tramp
+(dolist (package-need-install '(magit racket-mode
+								slime tramp vterm
 								xterm-color
 								cider clojure-mode clojure-snippets
 								helm-cider paredit))
@@ -222,11 +221,19 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(custom-enabled-themes '(manoj-dark))
+ '(custom-enabled-themes '(abyss))
  '(custom-safe-themes
-   '("93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
+   '("eead109a0c4c72e3926617c5eea8696eb3236ee885a92ee5ab875cec0142c9f2"
+	 "93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
 	 default))
- '(package-selected-packages nil))
+ '(package-selected-packages
+   '(abyss-theme atom-one-dark-theme clojure-snippets flycheck-clojure
+				 flycheck-raku helm-cider helm-cider-history
+				 helm-clojuredocs helm-company helm-flycheck
+				 helm-flyspell helm-lsp helm-org inf-clojure lsp-mssql
+				 lsp-scheme lsp-ui magit paredit-everywhere
+				 paredit-menu racket-mode slime vterm-hotkey windsize
+				 xterm-color yasnippet-snippets)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
