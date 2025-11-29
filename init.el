@@ -3,30 +3,61 @@
 ;; -> If EMACS run in GUI mode / has these functions
 (when (fboundp 'tool-bar-mode)
   (tool-bar-mode -1))          ;; Disable bar icon on top
+
 ;; -> If EMACS run in GUI mode / has these functions
 (when (fboundp 'scroll-bar-mode)
   (scroll-bar-mode -1))        ;; Disable scrollbar
+
 ;; -> Hide menu on top
 (menu-bar-mode -1)
+
 ;; -> Enable tab's on top
 (tab-bar-mode 1)
+
+;; -> Switch cursor to bar-view in GUI mode
+(when (display-graphic-p (selected-frame))
+  (setopt cursor-type 'bar))
+
 ;; -> Enable insert TAB-key or indent region with TAB-key
 (defun my-tab ()
   "If region is active – indent it, otherwise insert a TAB char."
   (interactive)
   (if (use-region-p)
       (indent-region (region-beginning) (region-end))
-    (insert "\t"))) ;; Really TAB
+    (insert "\t"))) 			;; Really TAB
 (keymap-global-set "TAB" #'my-tab)
 (setq-default tab-width 4)
+
 ;; -> Enable IDO-mode to all buffers
 (ido-mode 'both)
+
 ;; -> Enable mode of list recent files
-(recentf-mode 1)
+(use-package recentf
+  :custom
+  (recentf-max-saved-items 100 "Remember last 100 files")
+  (recentf-save-file (locate-user-emacs-file "recentf") "Sace file list in file .emacs.d/recentf")
+  :config (recentf-mode t))
+(keymap-global-set "C-x C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
+
 ;; -> Enable restore cursor position in file
-(save-place-mode 1)
+(use-package saveplace
+  :custom
+  (save-place-forget-unreadable-files t "Don't remember position in not read files.")
+  :config
+  (save-place-mode t))
+
+;; -> Remember command history
+(use-package savehist
+  :hook
+  (server-done . savehist-save)
+  (kill-emacs . savehist-save)
+  :config
+  (add-to-list 'delete-frame-functions 'savehist-save)
+  (savehist-mode t))
+
 ;; -> Enable delete marked text with typing or DEL, BACKSPACE
 (delete-selection-mode 1)
+
 ;; -> Set some variables
 (setq use-short-answers t							;; Use short y and n for answers
 	  inhibit-splash-screen t						;; Disable start screen EMACS
@@ -52,8 +83,6 @@
   (align-regexp (region-beginning) (region-end)							
                 (concat "\\(\\s-*\\)" (regexp-quote comment-start))))	
 (keymap-global-set "C-c a c" 'align-comments)		;; Set keybindings for align-comments
-
-(keymap-global-set "C-x C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
 
 ;;-> Set priorities of archives
 (setq package-archive-priorities
@@ -98,44 +127,51 @@
 
 ;; -> Builtin package. Save and restore EMACS state between session
 (use-package desktop
-	:custom
-	(desktop-auto-save-timeout 20 "Autosave every 20 second")
-	(desktop-load-locked-desktop t "Load desktop-file but if it blocked")
-	(desktop-restore-frames t "Restore frame state")
-	(desktop-save t "Save state desktop without questions")
-	:config
-	;; Modes buffersnot need save and restore
-	(add-to-list 'desktop-modes-not-to-save 'dired-mode)
-	(add-to-list 'desktop-modes-not-to-save 'Info-mode)
-	(add-to-list 'desktop-modes-not-to-save 'info-lookup-mode)
-	;; Switch mode to enable
-	(desktop-save-mode 1))
+  :custom
+  (desktop-dirname user-emacs-directory "Directory for saved file .desktop")
+  (desktop-auto-save-timeout 20 "Autosave every 20 second")
+  (desktop-load-locked-desktop t "Load desktop-file but if it blocked")
+  (desktop-restore-frames t "Restore frame state")
+  (desktop-save t "Save state desktop without questions")
+  :config
+  ;; Modes buffersnot need save and restore
+  (add-to-list 'delete-frame-functions 'desktop-save)
+  (add-to-list 'desktop-modes-not-to-save 'dired-mode)
+  (add-to-list 'desktop-modes-not-to-save 'Info-mode)
+  (add-to-list 'desktop-modes-not-to-save 'info-lookup-mode)
+  ;; Switch mode to enable
+  (desktop-save-mode 1)
+  :hook
+  (after-init . desktop-read)
+  (server-after-make-frame . desktop-read)
+  (kill-emacs . (lambda () (desktop-save user-emacs-directory t)))
+  (server-done . desktop-save))
 
 ;; -> ELEC-PAIR
 ;; Builtin packages
 ;; Automatic insert pair symbols.
 ;; If select region then pairing all select
 (use-package elec-pair
-	:config
-	(dolist (pair '((?\( . ?\))		;; ()
-					(?\[ . ?\])		;; []
-					(?{  . ?})		;; {}
-					(?«  . ?»)		;; «»
-					(?‘  . ?’)		;; ‘’
-					(?‚  . ?‘)		;; ‚‘
-					(?“  . ?”)))	;; “”
+  :config
+  (dolist (pair '((?\( . ?\))		;; ()
+				  (?\[ . ?\])		;; []
+				  (?{  . ?})		;; {}
+				  (?«  . ?»)		;; «»
+				  (?‘  . ?’)		;; ‘’
+				  (?‚  . ?‘)		;; ‚‘
+				  (?“  . ?”)))	;; “”
 	(add-to-list 'electric-pair-pairs pair))
-	:hook
-	((adoc-mode
-		conf-mode
-		emacs-lisp-mode
-		markdown-mode
-		python-mode
-		racket-mode
-		scheme-mode
-		c++-mode
-		clojure-mode 
-		ruby-mode) . electric-pair-local-mode))
+  :hook
+  ((adoc-mode
+	conf-mode
+	emacs-lisp-mode
+	markdown-mode
+	python-mode
+	racket-mode
+	scheme-mode
+	c++-mode
+	clojure-mode 
+	ruby-mode) . electric-pair-local-mode))
 
 ;; -> Enable global mode autocomplete
 (use-package company
@@ -232,8 +268,8 @@
 				 helm-clojuredocs helm-company helm-flycheck
 				 helm-flyspell helm-lsp helm-org inf-clojure lsp-mssql
 				 lsp-scheme lsp-ui magit paredit-everywhere
-				 paredit-menu racket-mode slime vterm-hotkey windsize
-				 xterm-color yasnippet-snippets)))
+				 paredit-menu pixel-scroll racket-mode slime
+				 vterm-hotkey windsize xterm-color yasnippet-snippets)))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
