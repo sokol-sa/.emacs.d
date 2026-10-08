@@ -259,17 +259,12 @@
  ;; If there is more than one, they won't work right.
  '(custom-enabled-themes '(abyss))
  '(custom-safe-themes
-   '("eead109a0c4c72e3926617c5eea8696eb3236ee885a92ee5ab875cec0142c9f2"
+   '("8722a4f132b280e9ad08089e860ab0520e9ecf2e9bc6cae294f078db3415056f"
+	 "12c539dc9927969d8ab987d373d9cca49aa5f082bf33ad31e45fba6fbe6a00ae"
+	 "eead109a0c4c72e3926617c5eea8696eb3236ee885a92ee5ab875cec0142c9f2"
 	 "93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
 	 default))
- '(package-selected-packages
-   '(abyss-theme atom-one-dark-theme clojure-snippets flycheck-clojure
-				 flycheck-raku helm-cider helm-cider-history
-				 helm-clojuredocs helm-company helm-flycheck
-				 helm-flyspell helm-lsp helm-org inf-clojure lsp-mssql
-				 lsp-scheme lsp-ui magit paredit-everywhere
-				 paredit-menu pixel-scroll racket-mode slime
-				 vterm-hotkey windsize xterm-color yasnippet-snippets)))
+ '(package-selected-packages nil))
 
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
