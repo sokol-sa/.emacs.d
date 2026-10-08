@@ -1,274 +1,372 @@
-;; -> Start initialization
+;;; init.el --- Personal Emacs configuration -*- lexical-binding: t; -*-
 
-;; -> If EMACS run in GUI mode / has these functions
-(when (fboundp 'tool-bar-mode)
-  (tool-bar-mode -1))          ;; Disable bar icon on top
+;; Оптимізація старту, package-quickstart та вимкнення UI-елементів
+;; перенесено в early-init.el.
 
-;; -> If EMACS run in GUI mode / has these functions
-(when (fboundp 'scroll-bar-mode)
-  (scroll-bar-mode -1))        ;; Disable scrollbar
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Custom file (окремо, щоб Customize не засмічував init.el)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(setq custom-file (locate-user-emacs-file "custom.el"))
+(load custom-file 'noerror 'nomessage)
 
-;; -> Hide menu on top
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Package system
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(require 'package)
+(setq package-archives
+      '(("gnu"    . "https://elpa.gnu.org/packages/")
+        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+        ("melpa"  . "https://melpa.org/packages/")))
+(setq package-archive-priorities
+      '(("gnu"    . 40)
+        ("nongnu" . 30)
+        ("melpa"  . 10)))
+
+;; Оновити список пакетів лише якщо він ще не завантажений (перший запуск).
+(unless (file-directory-p (expand-file-name "archives" package-user-dir))
+  (package-refresh-contents))
+
+;; use-package є частиною ядра в Emacs 29+
+(require 'use-package)
+(setq use-package-always-ensure t
+      use-package-expand-minimally t)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Memory Management
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; gcmh перебирає керування gc-cons-threshold після великого порогу з early-init.el
+(use-package gcmh
+  :demand t
+  :config
+  (gcmh-mode 1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; User interface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Фрейми вже створені без панелей (early-init.el); тут синхронізуємо стан режимів.
+(when (fboundp 'tool-bar-mode)   (tool-bar-mode -1))
+(when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
 (menu-bar-mode -1)
-
-;; -> Enable tab's on top
 (tab-bar-mode 1)
-
-;; -> Switch cursor to bar-view in GUI mode
-(when (display-graphic-p (selected-frame))
-  (setopt cursor-type 'bar))
-
-;; -> Enable insert TAB-key or indent region with TAB-key
-(defun my-tab ()
-  "If region is active – indent it, otherwise insert a TAB char."
-  (interactive)
-  (if (use-region-p)
-      (indent-region (region-beginning) (region-end))
-    (insert "\t"))) 			;; Really TAB
-(keymap-global-set "TAB" #'my-tab)
-(setq-default tab-width 4)
-
-;; -> Enable IDO-mode to all buffers
-(ido-mode 'both)
-
-;; -> Enable mode of list recent files
-(use-package recentf
-  :custom
-  (recentf-max-saved-items 100 "Remember last 100 files")
-  (recentf-save-file (locate-user-emacs-file "recentf") "Sace file list in file .emacs.d/recentf")
-  :config (recentf-mode t))
-(keymap-global-set "C-x C-g" 'recentf-open-files)	;; Set keybindings for open menu recent files
-
-;; -> Enable restore cursor position in file
-(use-package saveplace
-  :custom
-  (save-place-forget-unreadable-files t "Don't remember position in not read files.")
-  :config
-  (save-place-mode t))
-
-;; -> Remember command history
-(use-package savehist
-  :hook
-  (server-done . savehist-save)
-  (kill-emacs . savehist-save)
-  :config
-  (add-to-list 'delete-frame-functions 'savehist-save)
-  (savehist-mode t))
-
-;; -> Enable delete marked text with typing or DEL, BACKSPACE
+(repeat-mode 1)
 (delete-selection-mode 1)
 
-;; -> Set some variables
-(setq use-short-answers t							;; Use short y and n for answers
-	  inhibit-splash-screen t						;; Disable start screen EMACS
-	  initial-scratch-message nil					;; Disable message on top SCRATCH buffer
-	  use-file-dialog nil							;; Ask for textual confirmation instead of GUI
-	  make-backup-files nil							;; Don't make backup file
-	  auto-save-list-file-name nil					;; Don't make autosave file list
-	  auto-save-default nil							;; Disable default autosave files buffer
-	  ring-bell-function 'ignore					;; Shut up the bell
-	  dired-kill-when-opening-new-dired-buffer t)	;; Delete buffer when goto next directory
+;; cursor-type — per-buffer змінна, тому setq-default.
+;; Без перевірки display-graphic-p, щоб працювало і в режимі демона.
+(setq-default cursor-type 'bar)
 
-;; -> Enable smooth scroll buffer
-(setq redisplay-dont-pause t
-      scroll-margin 5
+(setq use-short-answers t
+      inhibit-splash-screen t
+      initial-scratch-message nil
+      use-file-dialog nil
+      ring-bell-function #'ignore)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Scrolling
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(setq scroll-margin 5
       scroll-step 1
       scroll-conservatively 10000
       scroll-preserve-screen-position 1)
+;; (pixel-scroll-precision-mode 1)
 
-;; -> Define function for align all comments in region
-(defun align-comments ()
-  "Align all comments in region by comment char."
-  (interactive)															
-  (align-regexp (region-beginning) (region-end)							
-                (concat "\\(\\s-*\\)" (regexp-quote comment-start))))	
-(keymap-global-set "C-c a c" 'align-comments)		;; Set keybindings for align-comments
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Tree-sitter: автоматичне встановлення граматик
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package treesit-auto
+  :custom
+  (treesit-auto-install 'prompt)
+  :config
+  (treesit-auto-add-to-auto-mode-alist 'all)
+  (global-treesit-auto-mode))
 
-;;-> Set priorities of archives
-(setq package-archive-priorities
-      '(("gnu" . 40)
-        ("nongnu" . 30)
-        ("melpa-stable" . 20)
-        ("melpa" . 10))
- 	  package-native-compile t) ;; "Compile packages from install but not first start"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; File safety
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(setq make-backup-files t
+      backup-by-copying t
+      version-control t
+      delete-old-versions t
+      kept-new-versions 10
+      kept-old-versions 5)
+(setq backup-directory-alist
+      `(("." . ,(locate-user-emacs-file "backups"))))
+(auto-save-visited-mode 1)
 
-;; Packages initialization
-(require 'package)
-(add-to-list 'package-archives '("gnu" . "https://elpa.gnu.org/packages/") t)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)
-(add-to-list 'package-archives '("nongnu" . "https://elpa.nongnu.org/nongnu/") t)
-(package-initialize)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Dired
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(setq dired-kill-when-opening-new-dired-buffer t)
 
-;; -> Refresh packages list if it not present
-(unless package-archive-contents
-  (message "Refresh list archives")
-  (package-refresh-contents))						
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; TAB helper
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun my-tab ()
+  "Indent region or insert real TAB."
+  (interactive)
+  (if (use-region-p)
+      (indent-region (region-beginning) (region-end))
+    (unless buffer-read-only
+      (insert "\t"))))
+(global-set-key (kbd "C-<tab>") #'my-tab)
+(setq-default tab-width 4)
 
-;;(unless (package-installed-p 'use-package)			;; Uncomment this if needed oldest version EMACS <28
-;;	(package-install 'use-package))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Align comments
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun align-comments (beg end)
+  "Align comments inside region."
+  (interactive "r")
+  (unless comment-start
+    (user-error "У цьому режимі синтаксис коментарів не визначено"))
+  (align-regexp
+   beg end
+   (concat "\\(\\s-*\\)" (regexp-quote (string-trim-right comment-start)))))
+(global-set-key (kbd "C-c a c") #'align-comments)
 
-;; -> Enable to use 'use-package package
-(require 'use-package)
-;; -> Always check present package befor install
-(setq use-package-always-ensure t)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Recent files, Saveplace, Savehist (вбудовані пакети)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Без :defer — щоб файли, відновлені desktop-ом, теж потрапляли в список.
+(use-package recentf
+  :ensure nil
+  :demand t
+  :custom
+  (recentf-max-saved-items 100)
+  (recentf-save-file (locate-user-emacs-file "recentf"))
+  :config
+  (recentf-mode 1))
 
-;; -> A dark theme with contrasting colours
+(use-package saveplace
+  :ensure nil
+  :custom
+  (save-place-forget-unreadable-files t)
+  :config
+  (save-place-mode 1))
+
+(use-package savehist
+  :ensure nil
+  :demand t
+  :config
+  (savehist-mode 1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Desktop (restore session)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; desktop-save-mode сам читає desktop під час старту (шукає в desktop-path,
+;; який за замовчуванням містить user-emacs-directory), тому ручний
+;; desktop-read і desktop-dirname не потрібні.
+(use-package desktop
+  :ensure nil
+  :custom
+  (desktop-auto-save-timeout 20)
+  (desktop-load-locked-desktop 'ask)
+  (desktop-restore-frames t)
+  :config
+  (dolist (mode '(dired-mode Info-mode info-lookup-mode))
+    (add-to-list 'desktop-modes-not-to-save mode))
+  ;; Не відновлювати шрифт/кольори фреймів з desktop-файлу —
+  ;; щоб працювали налаштування теми та шрифту з init.el.
+  (dolist (param '(font foreground-color background-color
+                   background-mode cursor-color))
+    (add-to-list 'frameset-filter-alist (cons param :never)))
+  (desktop-save-mode 1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Theme
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Аргумент t у load-theme вже пропускає перевірку custom-safe-themes.
 (use-package abyss-theme
+  :config
+  (load-theme 'abyss t))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Magit
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package magit
+  :commands (magit-status magit-dispatch))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Lisp languages
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package slime
+  :commands slime
+  :config (setq inferior-lisp-program "sbcl"))
+
+(use-package racket-mode
+  :mode "\\.rkt\\'")
+
+(use-package cider
+  :commands (cider-jack-in cider-connect))
+
+(use-package clojure-mode)
+
+(use-package clojure-snippets
   :defer t)
 
-;; Install needed packages
-(dolist (package-need-install '(magit racket-mode
-								slime tramp vterm
-								xterm-color
-								cider clojure-mode clojure-snippets
-								helm-cider paredit))
-  (eval `(use-package ,package-need-install)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Terminal
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package vterm
+  :commands vterm)
 
-;; -> Builtin package. Save and restore EMACS state between session
-(use-package desktop
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Electric Pair
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(electric-pair-mode 1)
+;; Типографські лапки лише для текстових режимів.
+;; Українська норма: «основні», „внутрішні“. Пари без конфліктів:
+;; жоден символ не є одночасно відкривним в одній парі та закривним в іншій.
+(add-hook 'text-mode-hook
+          (lambda ()
+            (setq-local electric-pair-pairs
+                        '((?\" . ?\") (?« . ?») (?„ . ?“) (?‘ . ?’)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Paredit
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package paredit
+  :hook ((emacs-lisp-mode
+          lisp-mode
+          scheme-mode
+          racket-mode
+          clojure-mode
+          slime-repl-mode
+          cider-repl-mode) . paredit-mode)
+  :config
+  ;; Paredit сам керує дужками: вимикаємо electric-pair, поки paredit активний,
+  ;; і повертаємо, якщо paredit вимкнули вручну.
+  (add-hook 'paredit-mode-hook
+            (lambda () (electric-pair-local-mode (if paredit-mode -1 1)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Completion (Vertico stack)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package vertico
+  :demand t
+  :config
+  (vertico-mode 1))
+
+(use-package orderless
   :custom
-  (desktop-dirname user-emacs-directory "Directory for saved file .desktop")
-  (desktop-auto-save-timeout 20 "Autosave every 20 second")
-  (desktop-load-locked-desktop t "Load desktop-file but if it blocked")
-  (desktop-restore-frames t "Restore frame state")
-  (desktop-save t "Save state desktop without questions")
-  :config
-  ;; Modes buffersnot need save and restore
-  (add-to-list 'delete-frame-functions 'desktop-save)
-  (add-to-list 'desktop-modes-not-to-save 'dired-mode)
-  (add-to-list 'desktop-modes-not-to-save 'Info-mode)
-  (add-to-list 'desktop-modes-not-to-save 'info-lookup-mode)
-  ;; Switch mode to enable
-  (desktop-save-mode 1)
-  :hook
-  (after-init . desktop-read)
-  (server-after-make-frame . desktop-read)
-  (kill-emacs . (lambda () (desktop-save user-emacs-directory t)))
-  (server-done . desktop-save))
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
 
-;; -> ELEC-PAIR
-;; Builtin packages
-;; Automatic insert pair symbols.
-;; If select region then pairing all select
-(use-package elec-pair
+(use-package marginalia
+  :demand t
   :config
-  (dolist (pair '((?\( . ?\))		;; ()
-				  (?\[ . ?\])		;; []
-				  (?{  . ?})		;; {}
-				  (?«  . ?»)		;; «»
-				  (?‘  . ?’)		;; ‘’
-				  (?‚  . ?‘)		;; ‚‘
-				  (?“  . ?”)))	;; “”
-	(add-to-list 'electric-pair-pairs pair))
-  :hook
-  ((adoc-mode
-	conf-mode
-	emacs-lisp-mode
-	markdown-mode
-	python-mode
-	racket-mode
-	scheme-mode
-	c++-mode
-	clojure-mode 
-	ruby-mode) . electric-pair-local-mode))
+  (marginalia-mode 1))
 
-;; -> Enable global mode autocomplete
-(use-package company
-  :defer 1
+(use-package consult
+  :bind (("C-x b"   . consult-buffer)
+         ("M-y"     . consult-yank-pop)
+         ("C-s"     . consult-line)
+         ("C-x C-g" . consult-recent-file)))  ; з попереднім переглядом
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Embark
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package embark
+  :bind
+  (("C-."   . embark-act)
+   ("C-;"   . embark-dwim)
+   ("C-h B" . embark-bindings))
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command))
+
+(use-package embark-consult
+  :after (embark consult)
+  :demand t
+  :hook (embark-collect-mode . consult-preview-at-point-mode))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Auto-completion: Corfu
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package corfu
+  :demand t
+  :custom
+  (corfu-auto t)
+  (corfu-auto-prefix 2)
+  (corfu-cycle t)
+  (corfu-quit-no-match t)
   :config
-  (global-company-mode))
+  (global-corfu-mode 1))
 
-;; -> Turn keybindings for move to other window with S-<cursur> keys
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Cape (Completion At Point Extensions)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; За README Cape: додаємо capf у ГЛОБАЛЬНИЙ список через add-hook.
+;; Буферні capf (Eglot, elisp тощо) мають пріоритет; глобальні спрацюють
+;; після них, якщо буферний список закінчується на t.
+;; Eglot сам додає свою capf у буферах, де він активний — вручну не треба.
+(use-package cape
+  :demand t
+  :bind ("C-c p" . cape-prefix-map)
+  :init
+  ;; add-hook додає на початок, тому порядок спрацювання: file → dabbrev
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file)
+  ;; Ключові слова мови — лише в програмних режимах
+  (add-hook 'prog-mode-hook
+            (lambda ()
+              (add-hook 'completion-at-point-functions #'cape-keyword 90 t)))
+  ;; Elisp-блоки в Markdown/Org
+  (add-hook 'text-mode-hook
+            (lambda ()
+              (add-hook 'completion-at-point-functions #'cape-elisp-block nil t))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Which-Key
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Вбудований з Emacs 30; для старіших версій встановлюється з ELPA.
+(use-package which-key
+  :defer 2
+  :custom
+  (which-key-idle-delay 2)
+  (which-key-idle-secondary-delay 0.05)
+  :config
+  (which-key-mode 1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Window navigation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (windmove-default-keybindings)
-
-;; -> Turn keybindings for change window size with C-S-<cursor> keys
 (use-package windsize
   :config
-  (windsize-default-keybindings)	
-  (setq windsize-cols 1				;; Set change step to 1 column
-		windsize-rows 1))			;; Set change step to 1 row
+  (windsize-default-keybindings)
+  (setq windsize-cols 1
+        windsize-rows 1))
 
-;; -> HELM
-;; https://github.com/emacs-helm/helm
-;; Help's and autocomplete input
-;; [C-o] — switch between source help's (history or full command list)
-(use-package helm
-  :ensure t
-  :diminish ""
-  :config
-  (helm-mode 1)
-  :bind (:map global-map
-			  ("C-x C-f" . helm-find-files)
-			  ("C-x b" . helm-buffers-list)
-			  ("M-x" . helm-M-x)
-			  ("M-y" . helm-show-kill-ring)))
-
-;; -> Help for actual keybindings in EMACS
-(use-package which-key
-	:ensure t
-	:delight ""
-	:custom
-	(which-key-computer-remaps t "Print actual keybindings, but not IS AS")
-	(which-key-idle-delay 2 "Pause befor help")
-	(which-key-idle-secondary-delay 0.05 "Second pause befor help")
-	(which-key-show-major-mode t "It is a [C-h m], but in format which-key")
-	:config
-	(which-key-mode 1)
-	(which-key-setup-minibuffer))
-
-;; -> EGLOT
-;; Package for support LSP.
-;; https://elpa.gnu.org/packages/eglot.html
-(use-package eglot
-  :ensure t
-  :defer t
-  :config
-  ;; Additional servers for various modes
-  (add-to-list 'eglot-server-programs '(ansible-mode . ("ansible-language-server" "--stdio")))
-  (add-to-list 'eglot-server-programs '(dockerfile-mode . ("docker-langserver" "--stdio")))
-  (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
-  (add-to-list 'eglot-server-programs '(python-mode . ("jedi-language-server")))
-  (add-to-list 'eglot-server-programs '(rst-mode . ("esbonio")))
-  (add-to-list 'eglot-server-programs '(ruby-mode . ("bundle" "exec" "rubocop" "--lsp")))
-  (add-to-list 'eglot-server-programs '(yaml-mode . ("yaml-language-server"))))
-
-;; -> Enable snippets
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Yasnippet
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (use-package yasnippet
-  :defer t
-  :config
-  (yas-reload-all))
-
-;; -> Add package snippets for yasnippet
+  :hook (prog-mode . yas-minor-mode)
+  :config (yas-reload-all))
 (use-package yasnippet-snippets
-  :defer t)
+  :after yasnippet)
 
-;; -> Yasnippet minor-mode enabled for any programming mode and yasnippet mode 
-(add-hook 'prog-mode-hook
-          (lambda ()
-            (unless (derived-mode-p 'emacs-lisp-mode)
-			  (eglot-ensure)
-              (yas-minor-mode 1))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Markdown (потрібен, щоб спрацьовував хук Eglot для markdown-mode)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(use-package markdown-mode
+  :mode ("\\.md\\'" . markdown-mode))
 
-(setq inferior-lisp-program "sbcl")	;; Set path to SBCL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Eglot (LSP)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; yaml-language-server та marksman уже є в стандартному eglot-server-programs,
+;; тому перевизначаємо лише Ruby (ruby-lsp замість дефолтного сервера).
+(use-package eglot
+  :ensure nil
+  :hook ((python-mode    . eglot-ensure)
+         (python-ts-mode . eglot-ensure)
+         (ruby-mode      . eglot-ensure)
+         (ruby-ts-mode   . eglot-ensure)
+         (yaml-ts-mode   . eglot-ensure)
+         (markdown-mode  . eglot-ensure))
+  :config
+  (add-to-list 'eglot-server-programs
+               '((ruby-mode ruby-ts-mode) . ("ruby-lsp"))))
 
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(custom-enabled-themes '(abyss))
- '(custom-safe-themes
-   '("8722a4f132b280e9ad08089e860ab0520e9ecf2e9bc6cae294f078db3415056f"
-	 "12c539dc9927969d8ab987d373d9cca49aa5f082bf33ad31e45fba6fbe6a00ae"
-	 "eead109a0c4c72e3926617c5eea8696eb3236ee885a92ee5ab875cec0142c9f2"
-	 "93ecd4dc151ca974e989f5d7ada80db450c169ebc31d9f440352f9a66c501212"
-	 default))
- '(package-selected-packages nil))
-
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+;;; init.el ends here
