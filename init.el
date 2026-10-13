@@ -369,4 +369,28 @@
   (add-to-list 'eglot-server-programs
                '((ruby-mode ruby-ts-mode) . ("ruby-lsp"))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; macOS: PATH із shell (GUI Emacs не бачить ~/.zshrc)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Потрібно, щоб Emacs знаходив ~/.local/bin/claude та інші CLI.
+(use-package exec-path-from-shell
+  :if (memq window-system '(mac ns))
+  :demand t
+  :config
+  (exec-path-from-shell-initialize))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Claude Code (агент у vterm + MCP-інтеграція з Emacs)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Працює через підписку Claude (без API-ключа). Зміни показує через ediff.
+(use-package claude-code-ide
+  :vc (:url "https://github.com/manzaltu/claude-code-ide.el" :rev :newest)
+  :bind ("C-c C-'" . claude-code-ide-menu)
+  :custom
+  (claude-code-ide-terminal-backend 'vterm)
+  (claude-code-ide-window-side 'right)
+  :config
+  ;; Дає Claude доступ до xref, imenu, project, діагностики Eglot/Flymake
+  (claude-code-ide-emacs-tools-setup))
+
 ;;; init.el ends here
