@@ -1,17 +1,13 @@
 /auto-save-list/
 /elpa/
 /org-persist/
-tutorial.org
-emacs-init.org
 /backups
 /snippets
 /eln-cache
 init_*
 .emacs.*
 history
-LICENSE
 places
-README*
 recentf
 .DS*
 package*
