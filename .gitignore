@@ -16,5 +16,6 @@ recentf
 .DS*
 package*
 /projects.eld
+/projects
 /tramp
 /transient/

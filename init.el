@@ -370,14 +370,23 @@
                '((ruby-mode ruby-ts-mode) . ("ruby-lsp"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; macOS: PATH із shell (GUI Emacs не бачить ~/.zshrc)
+;; PATH із shell (GUI Emacs / daemon не бачать ~/.zshrc, ~/.bashrc)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Потрібно, щоб Emacs знаходив ~/.local/bin/claude та інші CLI.
+;; macOS (mac/ns), Linux GUI (x/pgtk, напр. Fedora GNOME/Wayland) і systemd-daemon.
 (use-package exec-path-from-shell
-  :if (memq window-system '(mac ns))
+  :if (or (memq window-system '(mac ns x pgtk)) (daemonp))
   :demand t
   :config
   (exec-path-from-shell-initialize))
+
+;; Запасний варіант: ~/.local/bin (туди ставиться claude) завжди в PATH,
+;; навіть якщо shell-конфіг його не додає.
+(let ((local-bin (expand-file-name "~/.local/bin")))
+  (when (file-directory-p local-bin)
+    (add-to-list 'exec-path local-bin)
+    (unless (member local-bin (split-string (or (getenv "PATH") "") path-separator))
+      (setenv "PATH" (concat local-bin path-separator (getenv "PATH"))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Claude Code (агент у vterm + MCP-інтеграція з Emacs)
